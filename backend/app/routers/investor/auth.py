@@ -1,0 +1,240 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer
+from sqlalchemy.orm import Session
+from typing import Dict, Any
+from app.db.session import get_db
+from app.services.auth_service import AuthService
+from app.schemas.auth import (
+    UserCreate, LoginRequest, Token, UserUpdate,
+    PasswordResetRequest, PasswordResetConfirm, ChangePasswordRequest,
+    InvestorRegistrationRequest
+)
+from app.core.jwt import get_current_investor
+from app.models.user import User
+import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+security = HTTPBearer()
+
+
+@router.post("/register", response_model=Dict[str, Any])
+async def register_investor(
+    registration_data: InvestorRegistrationRequest,
+    db: Session = Depends(get_db)
+):
+    """Register new investor"""
+    try:
+        auth_service = AuthService(db)
+
+        # Convert to dict and separate password
+        investor_data = registration_data.dict(exclude={'password'})
+        password = registration_data.password
+
+        result = auth_service.register_investor(investor_data, password)
+
+        return {
+            "message": "Investor registered successfully",
+            "data": result
+        }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration failed"
+        )
+
+
+@router.post("/login", response_model=Dict[str, Any])
+async def login_investor(
+    login_data: LoginRequest,
+    db: Session = Depends(get_db)
+):
+    """Login investor"""
+    try:
+        auth_service = AuthService(db)
+        result = auth_service.login_user(login_data.email, login_data.password)
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+
+        return {
+            "message": "Login successful",
+            "data": result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed"
+        )
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    reset_request: PasswordResetRequest,
+    db: Session = Depends(get_db)
+):
+    """Initiate password reset"""
+    try:
+        auth_service = AuthService(db)
+        token = auth_service.initiate_password_reset(reset_request.email)
+
+        if token:
+            # In production, send email with reset link
+            return {
+                "message": "Password reset instructions sent to your email",
+                "reset_token": token  # Remove in production - only for testing
+            }
+        else:
+            # Don't reveal if email exists or not
+            return {
+                "message": "If the email exists, password reset instructions have been sent"
+            }
+
+    except Exception as e:
+        logger.error(f"Forgot password error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Password reset request failed"
+        )
+
+
+@router.post("/reset-password")
+async def reset_password(
+    reset_data: PasswordResetConfirm,
+    db: Session = Depends(get_db)
+):
+    """Reset password using token"""
+    try:
+        auth_service = AuthService(db)
+
+        if not auth_service.validate_reset_token(reset_data.token):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+
+        auth_service.reset_password(reset_data.token, reset_data.new_password)
+
+        return {
+            "message": "Password reset successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Reset password error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Password reset failed"
+        )
+
+
+@router.get("/profile")
+async def get_profile(
+    current_user: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Get current user profile"""
+    try:
+        auth_service = AuthService(db)
+        profile = auth_service.get_user_profile(current_user)
+
+        return {
+            "message": "Profile retrieved successfully",
+            "data": profile
+        }
+
+    except Exception as e:
+        logger.error(f"Get profile error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve profile"
+        )
+
+
+@router.put("/profile")
+async def update_profile(
+    update_data: UserUpdate,
+    current_user: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Update user profile"""
+    try:
+        auth_service = AuthService(db)
+        updated_user = auth_service.update_user_profile(current_user, update_data.dict(exclude_unset=True))
+
+        return {
+            "message": "Profile updated successfully",
+            "data": {
+                "user": {
+                    "id": updated_user.id,
+                    "email": updated_user.email,
+                    "full_name": updated_user.full_name,
+                    "phone_number": updated_user.phone_number
+                }
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Update profile error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update profile"
+        )
+
+
+@router.post("/change-password")
+async def change_password(
+    password_data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Change user password"""
+    try:
+        auth_service = AuthService(db)
+        auth_service.change_password(
+            current_user,
+            password_data.current_password,
+            password_data.new_password
+        )
+
+        return {
+            "message": "Password changed successfully"
+        }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Change password error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to change password"
+        )
+
+
+@router.post("/logout")
+async def logout_investor(
+    current_user: User = Depends(get_current_investor)
+):
+    """Logout investor (client-side token removal)"""
+    return {
+        "message": "Logged out successfully"
+    }
