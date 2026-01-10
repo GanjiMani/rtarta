@@ -93,6 +93,9 @@ async def purchase_units(
 
         logger.info(f"Purchase transaction created: {transaction.transaction_id}")
 
+        # Commit transaction for ACID properties
+        db.commit()
+
         # Convert to response
         transaction_response = TransactionResponse.model_validate(transaction)
         logger.info(f"Transaction response created successfully")
@@ -160,6 +163,9 @@ async def redeem_units(
             all_units=redemption_data.all_units
         )
 
+        # Commit transaction for ACID properties
+        db.commit()
+
         return {
             "message": "Redemption transaction processed successfully",
             "data": {
@@ -206,10 +212,13 @@ async def setup_sip(
             amount=sip_data.amount,
             frequency=sip_data.frequency,
             start_date=sip_data.start_date,
+            bank_account_id=sip_data.bank_account_id,
             end_date=sip_data.end_date,
-            installments=sip_data.installments,
-            bank_account_id=sip_data.bank_account_id
+            installments=sip_data.installments
         )
+
+        # Commit transaction for ACID properties
+        db.commit()
 
         return {
             "message": "SIP setup successful",
@@ -271,10 +280,13 @@ async def setup_swp(
             amount=swp_data.amount,
             frequency=swp_data.frequency,
             start_date=swp_data.start_date,
+            bank_account_id=swp_data.bank_account_id,
             end_date=swp_data.end_date,
-            installments=swp_data.installments,
-            bank_account_id=swp_data.bank_account_id
+            installments=swp_data.installments
         )
+
+        # Commit transaction for ACID properties
+        db.commit()
 
         return {
             "message": "SWP setup successful",
@@ -341,6 +353,9 @@ async def setup_stp(
             installments=stp_data.installments
         )
 
+        # Commit transaction for ACID properties
+        db.commit()
+
         return {
             "message": "STP setup successful",
             "data": {
@@ -405,6 +420,9 @@ async def switch_funds(
             amount=switch_data.amount
         )
 
+        # Commit transaction for ACID properties
+        db.commit()
+
         redemption_txn = switch_result["redemption_transaction"]
         purchase_txn = switch_result["purchase_transaction"]
 
@@ -467,6 +485,12 @@ async def get_transaction_history(
 ):
     """Get transaction history"""
     try:
+        if not current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User does not have an associated investor profile"
+            )
+        
         transaction_service = TransactionService(db)
         transactions = transaction_service.get_transaction_history(current_user.investor_id, limit)
 
@@ -474,21 +498,30 @@ async def get_transaction_history(
         from app.models.scheme import Scheme
         transaction_items = []
         for txn in transactions:
-            scheme = db.query(Scheme).filter(Scheme.scheme_id == txn.scheme_id).first()
+            # txn is a dictionary from the service
+            scheme_id = txn.get("scheme_id")
+            if not scheme_id:
+                continue  # Skip transactions without scheme_id
+            
+            scheme = db.query(Scheme).filter(Scheme.scheme_id == scheme_id).first()
             scheme_name = scheme.scheme_name if scheme else ""
             
-            transaction_items.append(TransactionHistoryItem(
-                transaction_id=txn.transaction_id,
-                transaction_type=txn.transaction_type.value,
-                transaction_date=txn.transaction_date,
-                amount=txn.amount,
-                units=txn.units,
-                nav_per_unit=txn.nav_per_unit,
-                status=txn.status.value,
-                scheme_id=txn.scheme_id,
-                scheme_name=scheme_name,
-                folio_number=txn.folio_number
-            ))
+            try:
+                transaction_items.append(TransactionHistoryItem(
+                    transaction_id=txn.get("transaction_id") or "",
+                    transaction_type=txn.get("transaction_type") or "",
+                    transaction_date=txn.get("transaction_date") or "",
+                    amount=txn.get("amount") or 0.0,
+                    units=txn.get("units") or 0.0,
+                    nav_per_unit=txn.get("nav_per_unit") or 0.0,
+                    status=txn.get("status") or "",
+                    scheme_id=scheme_id,
+                    scheme_name=scheme_name,
+                    folio_number=txn.get("folio_number")
+                ))
+            except Exception as item_error:
+                logger.warning(f"Failed to create transaction item: {item_error}, txn: {txn}")
+                continue  # Skip problematic transactions
 
         return {
             "message": "Transaction history retrieved successfully",
@@ -499,10 +532,10 @@ async def get_transaction_history(
         }
 
     except Exception as e:
-        logger.error(f"Get transaction history error: {e}")
+        logger.error(f"Get transaction history error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve transaction history"
+            detail=f"Failed to retrieve transaction history: {str(e)}"
         )
 
 
@@ -738,6 +771,250 @@ async def get_folio_details(
         recent_transactions = db.query(Transaction).filter(
             Transaction.folio_number == folio_number
         ).order_by(Transaction.transaction_date.desc()).limit(10).all()
+
+        # Get scheme details
+        from app.models.scheme import Scheme
+        scheme = db.query(Scheme).filter(Scheme.scheme_id == folio.scheme_id).first()
+
+        return {
+            "message": "Folio details retrieved successfully",
+            "data": {
+                "folio_number": folio.folio_number,
+                "scheme_id": folio.scheme_id,
+                "scheme_name": scheme.scheme_name if scheme else None,
+                "total_units": float(folio.total_units) if folio.total_units else 0.0,
+                "total_investment": float(folio.total_investment) if folio.total_investment else 0.0,
+                "total_value": float(folio.total_value) if folio.total_value else 0.0,
+                "current_nav": float(folio.current_nav) if folio.current_nav else 0.0,
+                "average_cost_per_unit": float(folio.average_cost_per_unit) if folio.average_cost_per_unit else 0.0,
+                "status": folio.status.value if hasattr(folio.status, 'value') else str(folio.status),
+                "recent_transactions": [
+                    {
+                        "transaction_id": txn.transaction_id,
+                        "transaction_type": txn.transaction_type.value if hasattr(txn.transaction_type, 'value') else str(txn.transaction_type),
+                        "amount": float(txn.amount),
+                        "units": float(txn.units) if txn.units else 0.0,
+                        "transaction_date": txn.transaction_date.isoformat() if txn.transaction_date else None,
+                        "status": txn.status.value if hasattr(txn.status, 'value') else str(txn.status)
+                    }
+                    for txn in recent_transactions
+                ]
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get folio details error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve folio details"
+        )
+
+
+@router.post("/sip/{registration_id}/process-installment")
+async def process_sip_installment_api(
+    registration_id: str,
+    current_user: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Manually trigger processing of a single SIP installment"""
+    try:
+        if not current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User does not have an associated investor profile"
+            )
+
+        # Verify ownership
+        from app.models.mandate import SIPRegistration
+        sip_reg = db.query(SIPRegistration).filter(
+            SIPRegistration.registration_id == registration_id
+        ).first()
+
+        if not sip_reg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="SIP registration not found"
+            )
+
+        if sip_reg.investor_id != current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this SIP"
+            )
+
+        transaction_service = TransactionService(db)
+        transaction = transaction_service.process_sip_installment(registration_id)
+
+        # Commit transaction for ACID properties
+        db.commit()
+
+        return {
+            "message": "SIP installment processed successfully",
+            "data": {
+                "transaction": TransactionResponse.model_validate(transaction),
+                "sip_registration": {
+                    "registration_id": sip_reg.registration_id,
+                    "next_installment_date": sip_reg.next_installment_date.isoformat() if sip_reg.next_installment_date else None,
+                    "total_installments_completed": sip_reg.total_installments_completed,
+                    "status": sip_reg.status.value if hasattr(sip_reg.status, 'value') else str(sip_reg.status)
+                }
+            }
+        }
+
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Process SIP installment error: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process SIP installment: {str(e)}"
+        )
+
+
+@router.post("/swp/{registration_id}/process-installment")
+async def process_swp_installment_api(
+    registration_id: str,
+    current_user: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Manually trigger processing of a single SWP installment"""
+    try:
+        if not current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User does not have an associated investor profile"
+            )
+
+        # Verify ownership
+        from app.models.mandate import SWPRegistration
+        swp_reg = db.query(SWPRegistration).filter(
+            SWPRegistration.registration_id == registration_id
+        ).first()
+
+        if not swp_reg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="SWP registration not found"
+            )
+
+        if swp_reg.investor_id != current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this SWP"
+            )
+
+        transaction_service = TransactionService(db)
+        transaction = transaction_service.process_swp_installment(registration_id)
+
+        # Commit transaction for ACID properties
+        db.commit()
+
+        return {
+            "message": "SWP installment processed successfully",
+            "data": {
+                "transaction": TransactionResponse.model_validate(transaction),
+                "swp_registration": {
+                    "registration_id": swp_reg.registration_id,
+                    "next_installment_date": swp_reg.next_installment_date.isoformat() if swp_reg.next_installment_date else None,
+                    "total_installments_completed": swp_reg.total_installments_completed,
+                    "status": swp_reg.status.value if hasattr(swp_reg.status, 'value') else str(swp_reg.status)
+                }
+            }
+        }
+
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Process SWP installment error: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process SWP installment: {str(e)}"
+        )
+
+
+@router.post("/stp/{registration_id}/process-installment")
+async def process_stp_installment_api(
+    registration_id: str,
+    current_user: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Manually trigger processing of a single STP installment"""
+    try:
+        if not current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User does not have an associated investor profile"
+            )
+
+        # Verify ownership
+        from app.models.mandate import STPRegistration
+        stp_reg = db.query(STPRegistration).filter(
+            STPRegistration.registration_id == registration_id
+        ).first()
+
+        if not stp_reg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="STP registration not found"
+            )
+
+        if stp_reg.investor_id != current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this STP"
+            )
+
+        transaction_service = TransactionService(db)
+        result = transaction_service.process_stp_installment(registration_id)
+
+        # Commit transaction for ACID properties
+        db.commit()
+
+        return {
+            "message": "STP installment processed successfully",
+            "data": {
+                "redemption_transaction": TransactionResponse.model_validate(result["redemption_transaction"]),
+                "purchase_transaction": TransactionResponse.model_validate(result["purchase_transaction"]),
+                "stp_registration": {
+                    "registration_id": stp_reg.registration_id,
+                    "next_installment_date": stp_reg.next_installment_date.isoformat() if stp_reg.next_installment_date else None,
+                    "total_installments_completed": stp_reg.total_installments_completed,
+                    "status": stp_reg.status.value if hasattr(stp_reg.status, 'value') else str(stp_reg.status)
+                }
+            }
+        }
+
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Process STP installment error: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process STP installment: {str(e)}"
+        )
 
         return {
             "message": "Folio details retrieved successfully",

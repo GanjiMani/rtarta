@@ -7,8 +7,9 @@ from app.services.auth_service import AuthService
 from app.schemas.auth import (
     UserCreate, LoginRequest, Token, UserUpdate,
     PasswordResetRequest, PasswordResetConfirm, ChangePasswordRequest,
-    InvestorRegistrationRequest
+    InvestorRegistrationRequest, OTPVerificationRequest
 )
+from app.core.config import settings
 from app.core.jwt import get_current_investor
 from app.models.user import User
 import logging
@@ -88,21 +89,26 @@ async def forgot_password(
     reset_request: PasswordResetRequest,
     db: Session = Depends(get_db)
 ):
-    """Initiate password reset"""
+    """Initiate password reset - sends OTP to email"""
     try:
         auth_service = AuthService(db)
-        token = auth_service.initiate_password_reset(reset_request.email)
+        otp = auth_service.initiate_password_reset(reset_request.email)
 
-        if token:
-            # In production, send email with reset link
-            return {
-                "message": "Password reset instructions sent to your email",
-                "reset_token": token  # Remove in production - only for testing
+        if otp:
+            response = {
+                "message": "If the email exists, an OTP has been sent to your email address. Please check your inbox."
             }
+            
+            # Include OTP in response for debugging (only in debug mode)
+            if settings.DEBUG_MODE:
+                response["otp"] = auth_service.get_last_generated_otp_for_email(reset_request.email)
+                response["debug_message"] = "Debug mode: OTP included in response for testing purposes."
+            
+            return response
         else:
             # Don't reveal if email exists or not
             return {
-                "message": "If the email exists, password reset instructions have been sent"
+                "message": "If the email exists, an OTP has been sent to your email address. Please check your inbox."
             }
 
     except Exception as e:
@@ -113,27 +119,61 @@ async def forgot_password(
         )
 
 
+@router.post("/verify-otp")
+async def verify_otp(
+    otp_data: OTPVerificationRequest,
+    db: Session = Depends(get_db)
+):
+    """Verify OTP for password reset"""
+    try:
+        auth_service = AuthService(db)
+        is_valid = auth_service.verify_otp(otp_data.email, otp_data.otp)
+
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired OTP"
+            )
+
+        return {
+            "message": "OTP verified successfully",
+            "verified": True
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"OTP verification error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OTP verification failed"
+        )
+
+
 @router.post("/reset-password")
 async def reset_password(
     reset_data: PasswordResetConfirm,
     db: Session = Depends(get_db)
 ):
-    """Reset password using token"""
+    """Reset password using OTP"""
     try:
         auth_service = AuthService(db)
 
-        if not auth_service.validate_reset_token(reset_data.token):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired reset token"
-            )
-
-        auth_service.reset_password(reset_data.token, reset_data.new_password)
+        auth_service.reset_password(
+            reset_data.email,
+            reset_data.otp,
+            reset_data.new_password
+        )
 
         return {
             "message": "Password reset successfully"
         }
 
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:

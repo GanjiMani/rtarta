@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     MAX_TRANSACTION_AMOUNT: float = 1000000.0  # ₹10 lakhs
     MIN_TRANSACTION_AMOUNT: float = 100.0  # ₹100
 
+    # Email Configuration
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""  # Set via environment variable
+    SMTP_PASSWORD: str = ""  # Set via environment variable
+    EMAIL_FROM: str = ""  # Set via environment variable
+
+    # Debug Mode
+    DEBUG_MODE: bool = True  # Set to False in production
+
     class Config:
         env_file = ".env"
         case_sensitive = True

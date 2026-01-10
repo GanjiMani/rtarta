@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../services/AuthContext";
+import { BadgeIndianRupee, CheckCircle, X, Info, RefreshCw, Wallet, TrendingUp } from "lucide-react";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function IDCWPreferences() {
-  const { fetchWithAuth } = useAuth();
-  const [preferences, setPreferences] = useState([]);
+  const { fetchWithAuth, token } = useAuth();
+
   const [loading, setLoading] = useState(true);
+  const [preferences, setPreferences] = useState([]);
+  const [originalPreferences, setOriginalPreferences] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (fetchWithAuth) {
@@ -15,17 +21,24 @@ export default function IDCWPreferences() {
     }
   }, [fetchWithAuth]);
 
+  useEffect(() => {
+    // Check if preferences have changed
+    const changed = JSON.stringify(preferences) !== JSON.stringify(originalPreferences);
+    setHasChanges(changed);
+  }, [preferences, originalPreferences]);
+
   const fetchPreferences = async () => {
     setLoading(true);
     setError("");
     try {
       const response = await fetchWithAuth("/api/investor/idcw/preferences");
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Failed to load preferences");
+        throw new Error("Failed to fetch IDCW preferences");
       }
       const data = await response.json();
-      setPreferences(data.data || []);
+      const prefsList = data.data || data || [];
+      setPreferences(prefsList);
+      setOriginalPreferences(JSON.parse(JSON.stringify(prefsList)));
     } catch (err) {
       setError(err.message || "Failed to load IDCW preferences");
       console.error("Error fetching IDCW preferences:", err);
@@ -39,19 +52,24 @@ export default function IDCWPreferences() {
     updated[index] = {
       ...updated[index],
       preference: newPreference,
-      idcw_option: newPreference.toLowerCase() === "payout" ? "payout" : "reinvestment"
     };
     setPreferences(updated);
-    setSuccessMsg("");
+  };
+
+  const handleCancel = () => {
+    setPreferences(JSON.parse(JSON.stringify(originalPreferences)));
+    setHasChanges(false);
+    setError("");
   };
 
   const handleSave = async () => {
     setSaving(true);
     setError("");
-    setSuccessMsg("");
+    setSaved(false);
 
     try {
       const payload = preferences.map((pref) => ({
+        folio_number: pref.folio_number,
         scheme_id: pref.scheme_id,
         preference: pref.preference,
       }));
@@ -66,180 +84,241 @@ export default function IDCWPreferences() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Failed to save preferences");
+        throw new Error(errorData.detail || "Failed to save IDCW preferences");
       }
 
-      const result = await response.json();
-      setSuccessMsg(
-        `IDCW preferences updated successfully for ${result.data?.updated_count || preferences.length} scheme(s)!`
-      );
-      
-      // Refresh preferences
-      await fetchPreferences();
+      setSaved(true);
+      setOriginalPreferences(JSON.parse(JSON.stringify(preferences)));
+      setHasChanges(false);
+
+      setTimeout(() => {
+        setSaved(false);
+      }, 3000);
     } catch (err) {
       setError(err.message || "Failed to save preferences");
-      console.error("Error saving IDCW preferences:", err);
     } finally {
       setSaving(false);
     }
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 2,
-    }).format(value);
+  const getPreferenceIcon = (preference) => {
+    return preference?.toLowerCase() === "payout" ? (
+      <Wallet className="w-5 h-5 text-blue-600" />
+    ) : (
+      <TrendingUp className="w-5 h-5 text-green-600" />
+    );
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading IDCW preferences...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">IDCW Preferences</h1>
-          <p className="text-gray-600">
-            Configure your Income Distribution cum Capital Withdrawal (IDCW) preferences for each scheme
+    <div className="min-h-screen bg-gray-50">
+      {/* Gradient Header */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-700 text-white shadow-lg">
+        <div className="px-6 py-8">
+          <div className="flex items-center gap-3 mb-2">
+            <BadgeIndianRupee className="w-8 h-8" />
+            <h1 className="text-3xl font-bold">IDCW Preferences</h1>
+          </div>
+          <p className="text-indigo-100 text-lg">
+            Manage your Income Distribution & Capital Withdrawal preferences
           </p>
         </div>
+      </div>
 
-        {/* Success Message */}
-        {successMsg && (
-          <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-green-800">{successMsg}</p>
-              </div>
+      <div className="px-6 py-6 max-w-4xl mx-auto">
+        {/* Info Banner */}
+        <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-5 rounded-xl shadow-sm">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <Info className="h-6 w-6 text-blue-500" />
+            </div>
+            <div className="ml-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-2">About IDCW Preferences</h3>
+              <p className="text-sm text-blue-700">
+                IDCW (Income Distribution & Capital Withdrawal) allows you to choose how dividends from your mutual fund investments are handled. 
+                Choose <strong>Payout</strong> to receive dividends directly in your bank account, or <strong>Reinvestment</strong> to automatically 
+                reinvest dividends back into the same scheme to benefit from compounding.
+              </p>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Error Message */}
         {error && (
-          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-red-800">{error}</p>
-              </div>
-            </div>
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-start gap-3">
+            <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-red-700">{error}</p>
           </div>
         )}
 
-        {/* Loading State */}
-        {loading ? (
-          <div className="bg-white shadow-lg rounded-xl p-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Loading IDCW preferences...</p>
+        {saved && (
+          <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+            <p className="text-green-700">Preferences saved successfully!</p>
           </div>
-        ) : (
-          <>
-            {/* Info Banner */}
-            <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-blue-700">
-                    <strong>IDCW Options:</strong> Choose whether dividends from your schemes should be paid out to your bank account (Payout) or automatically reinvested to purchase more units (Reinvestment).
-                  </p>
-                </div>
-              </div>
-            </div>
+        )}
 
-            {/* Preferences List */}
-            {preferences.length === 0 ? (
-              <div className="bg-white shadow-lg rounded-xl p-8 text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900">No Schemes Found</h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  You don't have any active folios to configure IDCW preferences. Please make a purchase first.
-                </p>
-              </div>
-            ) : (
-              <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-8">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-900">Your Schemes</h3>
-                  <p className="text-sm text-gray-600 mt-1">Select your preferred IDCW option for each scheme</p>
-                </div>
-                
-                <div className="divide-y divide-gray-200">
-                  {preferences.map((pref, index) => (
-                    <div key={pref.folio_number || index} className="p-6 hover:bg-gray-50 transition-colors">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div className="flex-1">
-                          <h4 className="text-lg font-semibold text-gray-900">{pref.scheme_name || pref.scheme_id}</h4>
-                          <div className="mt-2 space-y-1 text-sm text-gray-600">
-                            <p><span className="font-medium">Folio Number:</span> {pref.folio_number}</p>
-                            <p><span className="font-medium">Current Preference:</span> 
-                              <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                                (pref.preference || pref.idcw_option || "Payout").toLowerCase() === "payout" 
-                                  ? "bg-blue-100 text-blue-800" 
-                                  : "bg-green-100 text-green-800"
-                              }`}>
-                                {pref.preference || (pref.idcw_option === "payout" ? "Payout" : "Reinvestment")}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex-shrink-0">
-                          <select
-                            value={pref.preference || (pref.idcw_option === "payout" ? "Payout" : "Reinvest")}
-                            onChange={(e) => handlePreferenceChange(index, e.target.value)}
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium min-w-[180px]"
-                          >
-                            <option value="Payout">Payout</option>
-                            <option value="Reinvest">Reinvestment</option>
-                          </select>
-                        </div>
+        {/* Unsaved Changes Indicator */}
+        {hasChanges && (
+          <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg">
+            <p className="text-yellow-800 text-sm font-medium">
+              You have unsaved changes. Please save or cancel to continue.
+            </p>
+          </div>
+        )}
+
+        {/* Preferences List */}
+        {preferences.length > 0 ? (
+          <div className="space-y-4 mb-6">
+            {preferences.map((pref, index) => {
+              const isPayout = pref.preference?.toLowerCase() === "payout";
+              return (
+                <div
+                  key={pref.folio_number || index}
+                  className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow border border-gray-200"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4 flex-1">
+                      {/* Icon */}
+                      <div
+                        className={`p-3 rounded-lg ${
+                          isPayout ? "bg-blue-100" : "bg-green-100"
+                        }`}
+                      >
+                        {getPreferenceIcon(pref.preference)}
                       </div>
-                      
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-600">Option Details:</span>
-                            <p className="mt-1 text-gray-900 font-medium">
-                              {pref.preference === "Payout" || (pref.preference !== "Reinvest" && pref.idcw_option === "payout")
-                                ? "Dividends will be credited to your registered bank account"
-                                : "Dividends will be automatically reinvested to purchase additional units"}
-                            </p>
-                          </div>
+
+                      {/* Scheme Details */}
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                          {pref.scheme_name || pref.scheme_id}
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-2">
+                          Scheme ID: {pref.scheme_id} | Folio: {pref.folio_number || "N/A"}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              isPayout
+                                ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                : "bg-green-100 text-green-800 border border-green-200"
+                            }`}
+                          >
+                            Current: {pref.preference || "Payout"}
+                          </span>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
 
-                {/* Save Button */}
-                <div className="p-6 border-t border-gray-200 bg-gray-50">
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {saving ? "Saving..." : "Save All Preferences"}
-                    </button>
+                    {/* Preference Selector */}
+                    <div className="ml-4">
+                      <div className="flex gap-3 items-center">
+                        <label
+                          className={`cursor-pointer px-4 py-2 rounded-lg border-2 transition-all ${
+                            !isPayout
+                              ? "bg-green-50 border-green-500 text-green-700 font-semibold"
+                              : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`preference-${index}`}
+                            value="reinvestment"
+                            checked={!isPayout}
+                            onChange={() => handlePreferenceChange(index, "reinvestment")}
+                            className="sr-only"
+                          />
+                          <span className="flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4" />
+                            Reinvestment
+                          </span>
+                        </label>
+
+                        <label
+                          className={`cursor-pointer px-4 py-2 rounded-lg border-2 transition-all ${
+                            isPayout
+                              ? "bg-blue-50 border-blue-500 text-blue-700 font-semibold"
+                              : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`preference-${index}`}
+                            value="payout"
+                            checked={isPayout}
+                            onChange={() => handlePreferenceChange(index, "payout")}
+                            className="sr-only"
+                          />
+                          <span className="flex items-center gap-2">
+                            <Wallet className="w-4 h-4" />
+                            Payout
+                          </span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+            <BadgeIndianRupee className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600 text-lg font-medium mb-2">No IDCW Preferences Found</p>
+            <p className="text-gray-500">
+              You don't have any active folios with IDCW options. Start investing to set your preferences.
+            </p>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        {preferences.length > 0 && (
+          <div className="flex items-center justify-between bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              {hasChanges && (
+                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                  Unsaved Changes
+                </span>
+              )}
+            </div>
+            <div className="flex gap-3">
+              {hasChanges && (
+                <button
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                onClick={handleSave}
+                disabled={saving || !hasChanges}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Save Preferences
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

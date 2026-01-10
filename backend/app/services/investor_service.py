@@ -3,7 +3,7 @@ from sqlalchemy import func
 from typing import Optional, Dict, Any, List
 from datetime import date, datetime
 from app.models.investor import Investor
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.mandate import BankAccount, Nominee
 from app.models.folio import Folio, FolioStatus
 from app.models.transaction import Transaction
@@ -55,214 +55,90 @@ class InvestorService:
 
     def create_user_for_investor(self, investor: Investor, password: str) -> User:
         """Create user account for investor"""
+        # Create user
         user = User(
             email=investor.email,
             full_name=investor.full_name,
-            role="investor",
+            role=UserRole.investor,
             investor_id=investor.investor_id,
-            hashed_password=get_password_hash(password),
             is_active=True
         )
+        user.set_password(password)
 
         self.db.add(user)
+        self.db.flush()
+
         return user
 
     def get_investor_profile(self, investor_id: str) -> Dict[str, Any]:
         """Get complete investor profile with related data"""
-        if not investor_id:
-            raise ValueError("Investor ID is required")
-
-        # Query investor object
-        investor_obj = self.db.query(Investor).filter(Investor.investor_id == investor_id).first()
-
-        if not investor_obj:
-            raise ValueError(f"Investor not found for ID: {investor_id}")
-
-        # Helper function to safely convert enum to string
-        def enum_to_string(value):
-            if value is None:
-                return None
-            if hasattr(value, 'value'):
-                return value.value
-            str_val = str(value)
-            if '.' in str_val:
-                return str_val.split('.')[-1]
-            return str_val
-        
-        # Convert to dictionary (avoid enum access to prevent serialization issues)
-        investor = {
-            "investor_id": investor_obj.investor_id,
-            "pan_number": investor_obj.pan_number,
-            "full_name": investor_obj.full_name,
-            "date_of_birth": investor_obj.date_of_birth.isoformat() if investor_obj.date_of_birth else None,
-            "gender": enum_to_string(investor_obj.gender),
-            "email": investor_obj.email,
-            "mobile_number": investor_obj.mobile_number,
-            "alternate_mobile": investor_obj.alternate_mobile,
-            "address_line1": investor_obj.address_line1,
-            "address_line2": investor_obj.address_line2,
-            "city": investor_obj.city,
-            "state": investor_obj.state,
-            "pincode": investor_obj.pincode,
-            "country": investor_obj.country,
-            "kyc_status": enum_to_string(investor_obj.kyc_status),
-            "occupation": enum_to_string(investor_obj.occupation),
-            "income_slab": enum_to_string(investor_obj.income_slab),
-            "marital_status": enum_to_string(investor_obj.marital_status),
-            "investor_type": enum_to_string(investor_obj.investor_type)
-        }
-
-        # Get bank accounts
-        bank_accounts_list = []
-        try:
-            bank_accounts = self.db.query(
-                BankAccount.id,
-                BankAccount.account_number,
-                BankAccount.bank_name,
-                BankAccount.ifsc_code,
-                BankAccount.branch_name,
-                BankAccount.account_holder_name,
-                BankAccount.is_primary,
-                BankAccount.is_verified
-            ).filter(BankAccount.investor_id == investor_id).all()
-
-            # Convert to dict format
-            for account in bank_accounts:
-                bank_accounts_list.append({
-                    "id": account.id,
-                    "account_number": account.account_number or "",
-                    "bank_name": account.bank_name or "",
-                    "ifsc_code": account.ifsc_code or "",
-                    "branch_name": account.branch_name or "",
-                    "account_holder_name": account.account_holder_name or "",
-                    "is_primary": account.is_primary if account.is_primary is not None else False,
-                    "is_verified": account.is_verified if account.is_verified is not None else False
-                })
-        except Exception as e:
-            logger.warning(f"Failed to fetch bank accounts for investor {investor_id}: {e}")
-            bank_accounts_list = []
-
-        # Get nominees
-        nominees_list = []
-        try:
-            nominees = self.db.query(
-                Nominee.id,
-                Nominee.nominee_name,
-                Nominee.nominee_relationship,
-                Nominee.date_of_birth,
-                Nominee.allocation_percentage
-            ).filter(Nominee.investor_id == investor_id).all()
-
-            # Convert to dict format
-            for nominee in nominees:
-                nominees_list.append({
-                    "id": nominee.id,
-                    "full_name": nominee.nominee_name or "",
-                    "relationship": nominee.nominee_relationship or "",
-                    "date_of_birth": nominee.date_of_birth.isoformat() if nominee.date_of_birth else None,
-                    "allocation_percentage": float(nominee.allocation_percentage) if nominee.allocation_percentage else 0.0
-                })
-        except Exception as e:
-            logger.warning(f"Failed to fetch nominees for investor {investor_id}: {e}")
-            nominees_list = []
-
-        # Get portfolio summary (simplified to avoid any potential issues)
-        # Initialize default values
-        total_investment = 0.0
-        current_value = 0.0
-        folio_count = 0
-        folio_list = []
-        
-        # Try to fetch folio data, but don't fail if it errors
-        try:
-            # Query full Folio objects for calculations
-            folios_data = self.db.query(Folio).filter(
-                Folio.investor_id == investor_id,
-                Folio.status == FolioStatus.active
-            ).all()
-
-            if folios_data:
-                try:
-                    total_investment = sum(float(f.total_investment) if f.total_investment else 0.0 for f in folios_data)
-                    current_value = sum(float(f.total_value) if f.total_value else 0.0 for f in folios_data)
-                    folio_count = len(folios_data)
-                except (ValueError, TypeError) as calc_error:
-                    logger.warning(f"Error calculating folio totals for investor {investor_id}: {calc_error}")
-                    # Keep default values of 0.0
-        except Exception as e:
-            # If folio query fails for any reason (table doesn't exist, connection issue, etc.), 
-            # log it but continue - folio data is not critical for profile display
-            logger.debug(f"Could not fetch folio data for investor {investor_id} (this is optional): {e}")
-            # Continue with default values - this is not critical for profile display
-
-        return {
-            "investor": investor,
-            "bank_accounts": bank_accounts_list,
-            "nominees": nominees_list,
-            "folios": folio_list,
-            "total_folios": folio_count,
-            "total_investment": total_investment,
-            "current_value": current_value
-        }
-
-    def update_investor_profile(self, investor_id: str, update_data: Dict[str, Any]) -> Investor:
-        """Update investor profile information"""
         investor = self.db.query(Investor).filter(Investor.investor_id == investor_id).first()
         if not investor:
-            raise ValueError("Investor not found")
+            raise ValueError(f"Investor {investor_id} not found")
 
-        # Update allowed fields
-        allowed_fields = [
-            'full_name', 'mobile_number', 'alternate_mobile',
-            'address_line1', 'address_line2', 'city', 'state', 'pincode',
-            'occupation', 'income_slab', 'marital_status'
-        ]
+        # Get bank accounts
+        bank_accounts = self.db.query(BankAccount).filter(
+            BankAccount.investor_id == investor_id
+        ).all()
 
-        for field, value in update_data.items():
-            if field in allowed_fields and value is not None:
-                setattr(investor, field, value)
+        # Get nominees
+        nominees = self.db.query(Nominee).filter(
+            Nominee.investor_id == investor_id
+        ).all()
 
-        # Flush to send changes to database (but don't commit - let router handle commit)
+        # Convert to dict
+        profile = {
+            "investor_id": investor.investor_id,
+            "pan_number": investor.pan_number,
+            "full_name": investor.full_name,
+            "date_of_birth": investor.date_of_birth.isoformat() if investor.date_of_birth else None,
+            "gender": investor.gender.value if hasattr(investor.gender, 'value') else str(investor.gender),
+            "investor_type": investor.investor_type.value if hasattr(investor.investor_type, 'value') else str(investor.investor_type),
+            "email": investor.email,
+            "mobile_number": investor.mobile_number,
+            "alternate_mobile": investor.alternate_mobile,
+            "address_line1": investor.address_line1,
+            "address_line2": investor.address_line2,
+            "city": investor.city,
+            "state": investor.state,
+            "pincode": investor.pincode,
+            "country": investor.country,
+            "occupation": investor.occupation.value if investor.occupation and hasattr(investor.occupation, 'value') else str(investor.occupation) if investor.occupation else None,
+            "income_slab": investor.income_slab.value if investor.income_slab and hasattr(investor.income_slab, 'value') else str(investor.income_slab) if investor.income_slab else None,
+            "kyc_status": investor.kyc_status.value if hasattr(investor.kyc_status, 'value') else str(investor.kyc_status),
+            "bank_accounts": [self._bank_account_to_dict(ba) for ba in bank_accounts],
+            "nominees": [self._nominee_to_dict(n) for n in nominees]
+        }
+
+        return profile
+
+    def update_investor_profile(self, investor_id: str, update_data: Dict[str, Any]) -> Investor:
+        """Update investor profile"""
+        investor = self.db.query(Investor).filter(Investor.investor_id == investor_id).first()
+        if not investor:
+            raise ValueError(f"Investor {investor_id} not found")
+
+        for key, value in update_data.items():
+            if hasattr(investor, key) and value is not None:
+                setattr(investor, key, value)
+
         self.db.flush()
-        self.db.refresh(investor)  # Refresh to get updated data
-        
         return investor
 
     def add_bank_account(self, investor_id: str, bank_data: BankAccountCreate) -> BankAccount:
         """Add bank account for investor"""
-        # Check if account number already exists for this investor
-        existing = self.db.query(BankAccount).filter(
-            BankAccount.investor_id == investor_id,
-            BankAccount.account_number == bank_data.account_number
-        ).first()
-
-        if existing:
-            raise ValueError("Bank account already exists")
-
-        # If this is the first account or marked as primary, set as primary
-        existing_accounts = self.db.query(BankAccount).filter(
-            BankAccount.investor_id == investor_id
-        ).count()
-
-        is_primary = bank_data.is_primary if hasattr(bank_data, 'is_primary') else (existing_accounts == 0)
-
-        if is_primary:
-            # Remove primary flag from other accounts
-            self.db.query(BankAccount).filter(
-                BankAccount.investor_id == investor_id
-            ).update({"is_primary": False})
-
         bank_account = BankAccount(
             investor_id=investor_id,
-            **bank_data.dict(),
-            is_primary=is_primary
+            **bank_data.dict()
         )
 
         self.db.add(bank_account)
+        self.db.flush()
+        self.db.refresh(bank_account)
         return bank_account
 
     def update_bank_account(self, investor_id: str, account_id: int, update_data: Dict[str, Any]) -> BankAccount:
-        """Update bank account details"""
+        """Update bank account"""
         bank_account = self.db.query(BankAccount).filter(
             BankAccount.id == account_id,
             BankAccount.investor_id == investor_id
@@ -271,22 +147,16 @@ class InvestorService:
         if not bank_account:
             raise ValueError("Bank account not found")
 
-        # Update allowed fields (including fields that frontend sends)
-        allowed_fields = [
-            'account_number', 'account_holder_name', 'bank_name', 'branch_name', 
-            'ifsc_code', 'bank_address', 'city', 'state', 'pincode'
-        ]
-
-        for field, value in update_data.items():
-            if field in allowed_fields and value is not None:
-                setattr(bank_account, field, value)
+        for key, value in update_data.items():
+            if hasattr(bank_account, key) and value is not None:
+                setattr(bank_account, key, value)
 
         self.db.flush()
         self.db.refresh(bank_account)
         return bank_account
 
-    def set_primary_bank_account(self, investor_id: str, account_id: int) -> BankAccount:
-        """Set bank account as primary"""
+    def delete_bank_account(self, investor_id: str, account_id: int) -> bool:
+        """Delete bank account"""
         bank_account = self.db.query(BankAccount).filter(
             BankAccount.id == account_id,
             BankAccount.investor_id == investor_id
@@ -295,13 +165,35 @@ class InvestorService:
         if not bank_account:
             raise ValueError("Bank account not found")
 
-        # Remove primary flag from all accounts
+        self.db.delete(bank_account)
+        self.db.flush()
+        return True
+
+    def get_bank_accounts(self, investor_id: str) -> List[BankAccount]:
+        """Get all bank accounts for investor"""
+        return self.db.query(BankAccount).filter(
+            BankAccount.investor_id == investor_id
+        ).all()
+
+    def set_primary_bank_account(self, investor_id: str, account_id: int) -> BankAccount:
+        """Set primary bank account"""
+        # Unset all primary accounts
         self.db.query(BankAccount).filter(
             BankAccount.investor_id == investor_id
         ).update({"is_primary": False})
 
-        # Set this account as primary
+        # Set new primary
+        bank_account = self.db.query(BankAccount).filter(
+            BankAccount.id == account_id,
+            BankAccount.investor_id == investor_id
+        ).first()
+
+        if not bank_account:
+            raise ValueError("Bank account not found")
+
         bank_account.is_primary = True
+        self.db.flush()
+        self.db.refresh(bank_account)
 
         return bank_account
 
@@ -317,10 +209,7 @@ class InvestorService:
 
         # Mark account as verified
         bank_account.is_verified = True
-        from datetime import date
         bank_account.verified_at = date.today()
-        # In production, verified_by would be set to current admin/user ID
-        # For now, we'll set it to a placeholder
         bank_account.verified_by = "system"
 
         self.db.flush()
@@ -339,7 +228,6 @@ class InvestorService:
         # Map relationship field from schema to model field name
         nominee_dict = nominee_data.dict()
         if 'relationship' in nominee_dict:
-            # The schema uses 'relationship' but model uses 'nominee_relationship'
             nominee_dict['nominee_relationship'] = nominee_dict.pop('relationship')
         
         nominee = Nominee(
@@ -353,7 +241,7 @@ class InvestorService:
         return nominee
 
     def update_nominee(self, investor_id: str, nominee_id: int, update_data: Dict[str, Any]) -> Nominee:
-        """Update nominee details"""
+        """Update nominee"""
         nominee = self.db.query(Nominee).filter(
             Nominee.id == nominee_id,
             Nominee.investor_id == investor_id
@@ -362,26 +250,15 @@ class InvestorService:
         if not nominee:
             raise ValueError("Nominee not found")
 
-        # Update allowed fields
-        allowed_fields = [
-            'nominee_name', 'nominee_pan', 'relationship', 'nominee_relationship',
-            'date_of_birth', 'gender', 'allocation_percentage', 
-            'mobile_number', 'email', 'address',
-            'guardian_name', 'guardian_pan', 'guardian_relation'
-        ]
-
-        for field, value in update_data.items():
-            # Map 'relationship' to 'nominee_relationship' if needed
-            if field == 'relationship':
-                field = 'nominee_relationship'
-            if field in allowed_fields and value is not None:
-                setattr(nominee, field, value)
+        for key, value in update_data.items():
+            if hasattr(nominee, key) and value is not None:
+                setattr(nominee, key, value)
 
         self.db.flush()
         self.db.refresh(nominee)
         return nominee
 
-    def delete_nominee(self, investor_id: str, nominee_id: int) -> None:
+    def delete_nominee(self, investor_id: str, nominee_id: int) -> bool:
         """Delete nominee"""
         nominee = self.db.query(Nominee).filter(
             Nominee.id == nominee_id,
@@ -392,6 +269,14 @@ class InvestorService:
             raise ValueError("Nominee not found")
 
         self.db.delete(nominee)
+        self.db.flush()
+        return True
+
+    def get_nominees(self, investor_id: str) -> List[Nominee]:
+        """Get all nominees for investor"""
+        return self.db.query(Nominee).filter(
+            Nominee.investor_id == investor_id
+        ).all()
 
     def get_investor_dashboard_data(self, investor_id: str) -> Dict[str, Any]:
         """Get dashboard data for investor"""
@@ -416,7 +301,7 @@ class InvestorService:
         for folio in folios_query:
             scheme = self.db.query(Scheme).filter(Scheme.scheme_id == folio.scheme_id).first()
             if scheme:
-                # Calculate current value from current NAV (always recalculate for accuracy)
+                # Calculate current value from current NAV
                 current_nav = float(scheme.current_nav) if scheme.current_nav else 0.0
                 total_units = float(folio.total_units) if folio.total_units else 0.0
                 calculated_total_value = total_units * current_nav
@@ -427,14 +312,14 @@ class InvestorService:
                     "scheme_name": scheme.scheme_name,
                     "total_units": total_units,
                     "total_investment": float(folio.total_investment) if folio.total_investment else 0.0,
-                    "total_value": calculated_total_value,  # Use calculated value from current NAV
+                    "total_value": calculated_total_value,
                     "current_nav": current_nav,
                     "last_nav": current_nav
                 })
                 total_investment += float(folio.total_investment) if folio.total_investment else 0.0
                 current_value += calculated_total_value
 
-        # Recent transactions (select specific fields to avoid relationships)
+        # Recent transactions
         recent_transactions = self.db.query(
             Transaction.transaction_id,
             Transaction.transaction_type,
@@ -458,7 +343,7 @@ class InvestorService:
                 "scheme_id": txn.scheme_id
             })
 
-        # Active SIPs (select specific fields to avoid relationships)
+        # Active SIPs
         from app.models.mandate import SIPRegistration, SIPStatus
         active_sips_data = self.db.query(
             SIPRegistration.id,
@@ -478,7 +363,7 @@ class InvestorService:
                 "id": sip.id,
                 "scheme_id": sip.scheme_id,
                 "amount": float(sip.amount),
-                "frequency": sip.frequency,
+                "frequency": sip.frequency.value if hasattr(sip.frequency, 'value') else str(sip.frequency),
                 "next_installment_date": sip.next_installment_date.isoformat() if sip.next_installment_date else None
             })
 
@@ -494,41 +379,12 @@ class InvestorService:
             "active_sips": sips_list
         }
 
-    def validate_investor_kyc(self, investor_id: str) -> bool:
-        """Validate if investor has complete KYC"""
-        investor = self.db.query(Investor).filter(Investor.investor_id == investor_id).first()
-        if not investor:
-            return False
-
-        # Check basic KYC requirements
-        required_fields = [
-            investor.pan_number,
-            investor.full_name,
-            investor.date_of_birth,
-            investor.address_line1,
-            investor.city,
-            investor.state,
-            investor.pincode
-        ]
-
-        return all(required_fields) and investor.kyc_status.value == "verified"
-
     def get_investor_folios(self, investor_id: str) -> List[Folio]:
         """Get all folios for investor"""
         return self.db.query(Folio).filter(Folio.investor_id == investor_id).all()
 
     def get_folios(self, investor_id: str, active_only: bool = False, with_units_only: bool = False) -> List[Dict[str, Any]]:
-        """
-        Get all folios for investor as dictionaries
-        
-        Args:
-            investor_id: The investor ID
-            active_only: If True, only return folios with active status
-            with_units_only: If True, only return folios with units > 0 (for redemption)
-        
-        Returns:
-            List of folio dictionaries with scheme details
-        """
+        """Get all folios for investor as dictionaries"""
         if not investor_id:
             logger.error("get_folios called with empty investor_id")
             return []
@@ -543,50 +399,12 @@ class InvestorService:
             if active_only:
                 query = query.filter(Folio.status == FolioStatus.active)
             elif with_units_only:
-                # For redemption (with_units_only), we want only active folios
-                query = query.filter(Folio.status == FolioStatus.active)
-            else:
-                # Exclude closed folios by default
-                query = query.filter(Folio.status != FolioStatus.closed)
-            
-            # Apply units filter if needed (for redemption scenarios)
-            if with_units_only:
-                # Filter for folios with units > 0
-                # Since total_units is DECIMAL(15,4) and nullable=False, we can safely compare
-                from decimal import Decimal
-                # Filter for folios where total_units > 0
-                # Use Decimal comparison to ensure accurate filtering
-                query = query.filter(Folio.total_units > Decimal('0.0001'))  # Use small threshold to handle rounding
-                logger.debug(f"Applied with_units_only filter: total_units > 0.0001, status=active")
+                query = query.filter(Folio.total_units > 0)
             
             folios = query.all()
             
-            # If with_units_only filter was applied, do an additional Python-side filter as safety
-            # This ensures we catch any edge cases where SQL comparison might not work as expected
             if with_units_only:
-                from decimal import Decimal
-                original_count = len(folios)
-                # Use a small threshold to handle floating point precision issues
-                threshold = Decimal('0.0001')
-                folios = [f for f in folios if f.total_units is not None and f.total_units > threshold]
-                if original_count != len(folios):
-                    logger.warning(f"Python-side filter removed {original_count - len(folios)} folios after SQL query")
-                # Log each folio that passed the filter for debugging
-                for f in folios:
-                    logger.debug(f"Folio {f.folio_number} passed filter: total_units={f.total_units}, status={f.status}")
-            
-            logger.info(f"Found {len(folios)} folios in database for investor {investor_id} (with_units_only={with_units_only})")
-            
-            # Additional debug logging
-            if with_units_only and len(folios) == 0:
-                # Check if there are folios without the units filter
-                all_folios = self.db.query(Folio).filter(Folio.investor_id == investor_id).all()
-                active_folios = [f for f in all_folios if f.status == FolioStatus.active]
-                logger.warning(f"No folios found with units > 0, but found {len(all_folios)} total folios, {len(active_folios)} active folios")
-                for f in all_folios[:10]:  # Limit to first 10 for logging
-                    status_val = f.status.value if hasattr(f.status, 'value') else str(f.status)
-                    units_val = float(f.total_units) if f.total_units else 0.0
-                    logger.warning(f"Folio {f.folio_number}: status={status_val}, total_units={units_val}, is_active={f.status == FolioStatus.active}, has_units={units_val > 0}")
+                folios = [f for f in folios if float(f.total_units or 0) > 0]
             
             folio_list = []
             for folio in folios:
@@ -621,7 +439,6 @@ class InvestorService:
                         "last_transaction_date": folio.last_transaction_date.isoformat() if folio.last_transaction_date else None
                     }
                     folio_list.append(folio_dict)
-                    logger.debug(f"Added folio {folio.folio_number}: {folio_dict['scheme_name']} - Units: {folio_dict['total_units']}")
                     
                 except Exception as e:
                     logger.error(f"Error processing folio {folio.folio_number}: {e}")
@@ -634,9 +451,187 @@ class InvestorService:
             logger.error(f"Error fetching folios for investor {investor_id}: {e}", exc_info=True)
             return []
 
-    def get_investor_transactions(self, investor_id: str, limit: int = 50) -> List[Transaction]:
-        """Get transaction history for investor"""
-        return self.db.query(Transaction).filter(
-            Transaction.investor_id == investor_id
-        ).order_by(Transaction.transaction_date.desc()).limit(limit).all()
+    def get_folio_summary(self, investor_id: str) -> Dict[str, Any]:
+        """Get folio summary for investor"""
+        folios = self.db.query(Folio).filter(
+            Folio.investor_id == investor_id,
+            Folio.status == FolioStatus.active
+        ).all()
 
+        total_units = 0.0
+        total_value = 0.0
+        folio_list = []
+
+        for folio in folios:
+            scheme = self.db.query(Scheme).filter(Scheme.scheme_id == folio.scheme_id).first()
+            if scheme:
+                current_nav = float(scheme.current_nav) if scheme.current_nav else 0.0
+                units = float(folio.total_units) if folio.total_units else 0.0
+                value = units * current_nav
+
+                folio_list.append({
+                    "folio_number": folio.folio_number,
+                    "scheme_id": folio.scheme_id,
+                    "scheme_name": scheme.scheme_name,
+                    "total_units": units,
+                    "current_nav": current_nav,
+                    "total_value": value
+                })
+                total_units += units
+                total_value += value
+
+        return {
+            "total_units": total_units,
+            "total_value": total_value,
+            "folios": folio_list
+        }
+
+    def get_folio_transactions(self, investor_id: str, folio_number: str) -> List[Transaction]:
+        """Get transactions for a specific folio"""
+        folio = self.db.query(Folio).filter(
+            Folio.folio_number == folio_number,
+            Folio.investor_id == investor_id
+        ).first()
+
+        if not folio:
+            raise ValueError(f"Folio {folio_number} not found")
+
+        return self.db.query(Transaction).filter(
+            Transaction.folio_number == folio_number
+        ).order_by(Transaction.transaction_date.desc()).all()
+
+    def create_bank_mandate(self, investor_id: str, bank_data: Dict[str, Any]) -> BankAccount:
+        """Create bank mandate (updates mandate fields on existing bank account)"""
+        # Find the bank account by ID
+        bank_account_id = bank_data.get('bank_account_id') or bank_data.get('id')
+        if not bank_account_id:
+            raise ValueError("bank_account_id is required")
+
+        bank_account = self.db.query(BankAccount).filter(
+            BankAccount.id == bank_account_id,
+            BankAccount.investor_id == investor_id
+        ).first()
+
+        if not bank_account:
+            raise ValueError("Bank account not found")
+
+        # Update mandate-related fields
+        from app.models.mandate import MandateType, MandateStatus
+        from datetime import date as date_obj
+
+        if 'mandate_type' in bank_data:
+            mandate_type = bank_data['mandate_type']
+            if isinstance(mandate_type, str):
+                bank_account.mandate_type = MandateType[mandate_type.lower()]
+            else:
+                bank_account.mandate_type = mandate_type
+
+        if 'mandate_status' in bank_data:
+            mandate_status = bank_data['mandate_status']
+            if isinstance(mandate_status, str):
+                bank_account.mandate_status = MandateStatus[mandate_status.lower()]
+            else:
+                bank_account.mandate_status = mandate_status
+
+        if 'mandate_id' in bank_data:
+            bank_account.mandate_id = bank_data['mandate_id']
+
+        if 'mandate_amount_limit' in bank_data:
+            bank_account.mandate_amount_limit = bank_data['mandate_amount_limit']
+
+        if 'mandate_umrn' in bank_data:
+            bank_account.mandate_umrn = bank_data['mandate_umrn']
+
+        if 'mandate_registration_date' in bank_data:
+            bank_account.mandate_registration_date = bank_data['mandate_registration_date']
+
+        if 'mandate_expiry_date' in bank_data:
+            bank_account.mandate_expiry_date = bank_data['mandate_expiry_date']
+
+        # Set default values if mandate is being created
+        if not bank_account.mandate_status:
+            bank_account.mandate_status = MandateStatus.active
+        if not bank_account.mandate_registration_date:
+            bank_account.mandate_registration_date = date_obj.today()
+
+        self.db.flush()
+        self.db.refresh(bank_account)
+        return bank_account
+
+    def update_bank_mandate(self, investor_id: str, mandate_id: int, update_data: Dict[str, Any]) -> BankAccount:
+        """Update bank mandate (updates mandate fields on bank account)"""
+        # mandate_id is actually bank_account_id
+        bank_account = self.db.query(BankAccount).filter(
+            BankAccount.id == mandate_id,
+            BankAccount.investor_id == investor_id
+        ).first()
+
+        if not bank_account:
+            raise ValueError("Bank mandate not found")
+
+        # Update mandate-related fields
+        from app.models.mandate import MandateType, MandateStatus
+
+        for key, value in update_data.items():
+            if hasattr(bank_account, key) and value is not None:
+                if key == 'mandate_type' and isinstance(value, str):
+                    setattr(bank_account, key, MandateType[value.lower()])
+                elif key == 'mandate_status' and isinstance(value, str):
+                    setattr(bank_account, key, MandateStatus[value.lower()])
+                else:
+                    setattr(bank_account, key, value)
+
+        self.db.flush()
+        self.db.refresh(bank_account)
+        return bank_account
+
+    def delete_bank_mandate(self, investor_id: str, mandate_id: int) -> bool:
+        """Delete bank mandate (deactivates mandate on bank account)"""
+        # mandate_id is actually bank_account_id
+        bank_account = self.db.query(BankAccount).filter(
+            BankAccount.id == mandate_id,
+            BankAccount.investor_id == investor_id
+        ).first()
+
+        if not bank_account:
+            raise ValueError("Bank mandate not found")
+
+        # Deactivate mandate instead of deleting bank account
+        from app.models.mandate import MandateStatus
+        bank_account.mandate_status = MandateStatus.cancelled
+        bank_account.mandate_id = None
+        bank_account.mandate_expiry_date = None
+
+        self.db.flush()
+        return True
+
+    def _bank_account_to_dict(self, bank_account: BankAccount) -> Dict[str, Any]:
+        """Convert bank account to dictionary"""
+        return {
+            "id": bank_account.id,
+            "account_number": bank_account.account_number,
+            "account_holder_name": bank_account.account_holder_name,
+            "bank_name": bank_account.bank_name,
+            "ifsc_code": bank_account.ifsc_code,
+            "branch": bank_account.branch_name or bank_account.branch,  # Support both field names
+            "branch_name": bank_account.branch_name,
+            "account_type": bank_account.account_type.value if hasattr(bank_account.account_type, 'value') else str(bank_account.account_type),
+            "is_primary": bank_account.is_primary,
+            "is_verified": bank_account.is_verified,
+            "verified_at": bank_account.verified_at.isoformat() if bank_account.verified_at else None,
+            "mandate_type": bank_account.mandate_type.value if bank_account.mandate_type and hasattr(bank_account.mandate_type, 'value') else str(bank_account.mandate_type) if bank_account.mandate_type else None,
+            "mandate_status": bank_account.mandate_status.value if bank_account.mandate_status and hasattr(bank_account.mandate_status, 'value') else str(bank_account.mandate_status) if bank_account.mandate_status else None,
+            "mandate_id": bank_account.mandate_id
+        }
+
+    def _nominee_to_dict(self, nominee: Nominee) -> Dict[str, Any]:
+        """Convert nominee to dictionary"""
+        return {
+            "id": nominee.id,
+            "nominee_name": nominee.nominee_name,
+            "nominee_relationship": nominee.nominee_relationship,
+            "date_of_birth": nominee.date_of_birth.isoformat() if nominee.date_of_birth else None,
+            "allocation_percentage": float(nominee.allocation_percentage) if nominee.allocation_percentage else 0.0,
+            "guardian_name": nominee.guardian_name,
+            "guardian_relationship": nominee.guardian_relationship
+        }

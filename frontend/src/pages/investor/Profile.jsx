@@ -1,865 +1,1456 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../services/AuthContext";
+import { User, CreditCard, Users, FileText, CheckCircle, X, Edit2, Trash2, Plus, Download, Upload, AlertCircle } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const nomineeRelations = ["Father", "Mother", "Spouse", "Son", "Daughter", "Other"];
+
+const nomineeRelations = ["Father", "Mother", "Spouse", "Son", "Daughter", "Brother", "Sister", "Other"];
 
 export default function Profile() {
   const { fetchWithAuth } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("personal");
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [personalEdit, setPersonalEdit] = useState(false);
   const [contactEdit, setContactEdit] = useState(false);
   const [bankEditIndex, setBankEditIndex] = useState(-1);
   const [nomineeEditIndex, setNomineeEditIndex] = useState(-1);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState({ type: null, id: null, index: null });
 
-  const [error, setError] = useState("");
-  const [docError, setDocError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
-
-  const [user, setUser] = useState({
-    hasProfile: false,
-    name: "",
+  const [profile, setProfile] = useState({
+    investor_id: "",
+    full_name: "",
+    pan_number: "",
+    date_of_birth: "",
+    gender: "",
     email: "",
-    phone: "",
+    mobile_number: "",
     address_line1: "",
     address_line2: "",
     city: "",
     state: "",
     pincode: "",
-    pan: "",
-    dob: "",
-    kyc: "Pending",
-    banks: [],
+    kyc_status: "",
+    bank_accounts: [],
     nominees: [],
-    kycDocuments: [],
+    documents: [],
   });
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        console.log("Fetching investor profile...");
-        const res = await fetchWithAuth(`/api/investor/profile`);
-        console.log("Profile response status:", res.status, res.ok);
-        
-        if (!res.ok) {
-          let errorMessage = "Unable to fetch profile";
-          try {
-            const errorData = await res.json();
-            console.error("Profile fetch error response:", errorData);
-            errorMessage = errorData.detail || errorData.message || errorMessage;
-          } catch (parseError) {
-            const errorText = await res.text().catch(() => "Unknown error");
-            console.error("Profile fetch failed, response text:", errorText);
-            errorMessage = errorText || errorMessage;
-          }
-          throw new Error(errorMessage);
-        }
-        
-        const response = await res.json();
-        console.log("Profile response data:", response);
-        
-        // Extract investor data from response
-        if (!response.data || !response.data.investor) {
-          console.error("Invalid response structure:", response);
-          throw new Error("Invalid response format from server");
-        }
-        
-        const investorData = response.data.investor;
-        console.log("Extracted investor data:", investorData);
-
-        // Map bank accounts from backend format to frontend format
-        const bankAccounts = (response.data?.bank_accounts || []).map(bank => ({
-          bank_id: bank.id,
-          account_no: bank.account_number || "",
-          ifsc: bank.ifsc_code || "",
-          branch: bank.branch_name || "",
-          bank_name: bank.bank_name || "",
-          verified: bank.is_primary || false
-        }));
-
-        // Map nominees from backend format to frontend format
-        const nomineesList = (response.data?.nominees || []).map(nominee => ({
-          nominee_id: nominee.id,
-          name: nominee.full_name || "",
-          relation: nominee.relationship || "",
-          pct: nominee.allocation_percentage || 100,
-          dob: nominee.date_of_birth || ""
-        }));
-
-        const userData = {
-          hasProfile: true,
-          name: investorData.full_name || "",
-          pan: investorData.pan_number || "",
-          dob: investorData.date_of_birth || "",
-          email: investorData.email || "",
-          phone: investorData.mobile_number || "",
-          address_line1: investorData.address_line1 || "",
-          address_line2: investorData.address_line2 || "",
-          city: investorData.city || "",
-          state: investorData.state || "",
-          pincode: investorData.pincode || "",
-          kyc: investorData.kyc_status || "Pending",
-          banks: bankAccounts,
-          nominees: nomineesList,
-          kycDocuments: [],
-        };
-        
-        console.log("Setting user data:", userData);
-        setUser(userData);
-        setError(""); // Clear any previous errors
-      } catch (err) {
-        console.error("Profile fetch error:", err);
-        setError("Failed to load profile: " + (err.message || "Unknown error"));
-        // Set hasProfile to true so we can show the error message instead of loading forever
-        setUser(prev => ({ ...prev, hasProfile: true }));
+    if (fetchWithAuth) {
+      fetchProfile();
+      if (activeTab === "documents") {
+        fetchDocuments();
       }
-    };
-    fetchProfile();
-  }, [fetchWithAuth]);
+    }
+  }, [fetchWithAuth, activeTab]);
 
-  const handleField = (e, section = null, index = null) => {
-    const { name, value } = e.target;
-    if (section === "banks") {
-      const newBanks = [...user.banks];
-      newBanks[index] = { ...newBanks[index], [name]: value };
-      setUser((prev) => ({ ...prev, banks: newBanks }));
-    } else if (section === "nominees") {
-      const newNominees = [...user.nominees];
-      newNominees[index] = { ...newNominees[index], [name]: value };
-      setUser((prev) => ({ ...prev, nominees: newNominees }));
-    } else {
-      setUser((prev) => ({ ...prev, [name]: value }));
+  const fetchProfile = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetchWithAuth("/api/investor/profile");
+      if (!response.ok) throw new Error("Failed to fetch profile");
+      const data = await response.json();
+      const profileData = data.data || {};
+      
+      setProfile({
+        investor_id: profileData.investor_id || "",
+        full_name: profileData.full_name || "",
+        pan_number: profileData.pan_number || "",
+        date_of_birth: profileData.date_of_birth || "",
+        gender: profileData.gender || "",
+        email: profileData.email || "",
+        mobile_number: profileData.mobile_number || "",
+        address_line1: profileData.address_line1 || "",
+        address_line2: profileData.address_line2 || "",
+        city: profileData.city || "",
+        state: profileData.state || "",
+        pincode: profileData.pincode || "",
+        kyc_status: profileData.kyc_status || "not_started",
+        bank_accounts: profileData.bank_accounts || [],
+        nominees: profileData.nominees || [],
+        documents: profile.documents || [],
+      });
+    } catch (err) {
+      setError("Failed to load profile: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-const savePersonal = async () => {
-  try {
-    const payload = {
-      full_name: user.name,
-    };
-    const res = await fetchWithAuth(`/api/investor/profile`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({ detail: "Failed to update profile" }));
-      throw new Error(errorData.detail || "Failed to update profile");
+  const fetchDocuments = async () => {
+    try {
+      const response = await fetchWithAuth("/api/investor/profile/documents");
+      if (!response.ok) throw new Error("Failed to fetch documents");
+      const data = await response.json();
+      setProfile((prev) => ({ ...prev, documents: data.data || [] }));
+    } catch (err) {
+      setError("Failed to load documents: " + err.message);
     }
-    // Reload profile after update
-    const res2 = await fetchWithAuth(`/api/investor/profile`);
-    if (res2.ok) {
-      const response = await res2.json();
-      const data = response.data?.investor || response.data || {};
-      setUser(prev => ({
-        ...prev,
-        name: data.full_name || prev.name,
-      }));
+  };
+
+  const handleFieldChange = (e, section = null, index = null) => {
+    const { name, value } = e.target;
+    if (section === "bank") {
+      const newBanks = [...profile.bank_accounts];
+      newBanks[index] = { ...newBanks[index], [name]: value };
+      setProfile((prev) => ({ ...prev, bank_accounts: newBanks }));
+    } else if (section === "nominee") {
+      const newNominees = [...profile.nominees];
+      newNominees[index] = { ...newNominees[index], [name]: value };
+      setProfile((prev) => ({ ...prev, nominees: newNominees }));
+    } else {
+      setProfile((prev) => ({ ...prev, [name]: value }));
     }
-    setPersonalEdit(false);
-    setError("");
-    setSuccessMsg("Personal information updated successfully!");
-    // Clear success message after 3 seconds
-    setTimeout(() => setSuccessMsg(""), 3000);
-  } catch (err) {
-    setError("Failed updating personal info: " + (err.message || "Unknown error"));
-    setSuccessMsg("");
-  }
-};
+  };
 
+  const savePersonal = async () => {
+    try {
+      const payload = {
+        full_name: profile.full_name,
+        pan_number: profile.pan_number,
+        date_of_birth: profile.date_of_birth,
+        gender: profile.gender,
+      };
 
+      const response = await fetchWithAuth("/api/investor/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-const saveContact = async () => {
-  try {
-    const payload = {
-      mobile_number: user.phone || null,
-      address_line1: user.address_line1 || null,
-      address_line2: user.address_line2 || null,
-      city: user.city || null,
-      state: user.state || null,
-      pincode: user.pincode || null,
-    };
-
-    const res = await fetchWithAuth(`/api/investor/profile`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({ detail: "Failed to update contact info" }));
-      throw new Error(errorData.detail || "Failed to update contact info");
+      if (!response.ok) throw new Error("Failed to update personal information");
+      setPersonalEdit(false);
+      setSuccessMsg("Personal information updated successfully");
+      setTimeout(() => setSuccessMsg(""), 3000);
+      fetchProfile();
+    } catch (err) {
+      setError(err.message || "Failed to update personal information");
     }
-    // Reload profile after update
-    const res2 = await fetchWithAuth(`/api/investor/profile`);
-    if (res2.ok) {
-      const response = await res2.json();
-      const data = response.data?.investor || response.data || {};
-      setUser(prev => ({
-        ...prev,
-        phone: data.mobile_number || prev.phone,
-        address_line1: data.address_line1 || prev.address_line1,
-        address_line2: data.address_line2 || prev.address_line2,
-        city: data.city || prev.city,
-        state: data.state || prev.state,
-        pincode: data.pincode || prev.pincode,
-      }));
+  };
+
+  const saveContact = async () => {
+    try {
+      const payload = {
+        email: profile.email,
+        mobile_number: profile.mobile_number,
+        address_line1: profile.address_line1,
+        address_line2: profile.address_line2,
+        city: profile.city,
+        state: profile.state,
+        pincode: profile.pincode,
+      };
+
+      const response = await fetchWithAuth("/api/investor/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) throw new Error("Failed to update contact information");
+      setContactEdit(false);
+      setSuccessMsg("Contact information updated successfully");
+      setTimeout(() => setSuccessMsg(""), 3000);
+      fetchProfile();
+    } catch (err) {
+      setError(err.message || "Failed to update contact information");
     }
-    setContactEdit(false);
-    setError("");
-    setSuccessMsg("Contact information updated successfully!");
-    // Clear success message after 3 seconds
-    setTimeout(() => setSuccessMsg(""), 3000);
-  } catch (err) {
-    setError("Failed updating contact info: " + (err.message || "Unknown error"));
-    setSuccessMsg("");
-  }
-};
+  };
 
   const saveBank = async (index) => {
-    const bank = user.banks[index];
-    const isNew = !bank.bank_id;
-    const url = isNew
-      ? `/api/investor/profile/bank-accounts`
-      : `/api/investor/profile/bank-accounts/${bank.bank_id}`;
-    const method = isNew ? "POST" : "PUT";
     try {
-      // Map frontend fields to backend schema
+      const bank = profile.bank_accounts[index];
+      const isNew = !bank.id;
+
       const payload = {
-        account_number: bank.account_no,
-        account_holder_name: user.name || "Account Holder", // Use investor name as default
-        bank_name: bank.bank_name || "Bank", // Required field - use provided bank_name or default
-        branch_name: bank.branch || "",
-        ifsc_code: bank.ifsc,
+        account_number: bank.account_number,
+        account_holder_name: bank.account_holder_name,
+        bank_name: bank.bank_name,
+        branch_name: bank.branch_name || bank.branch,
+        ifsc_code: bank.ifsc_code || bank.ifsc,
+        account_type: bank.account_type || "savings",
+        bank_address: bank.bank_address,
+        city: bank.city,
+        state: bank.state,
+        pincode: bank.pincode,
       };
-      const res = await fetchWithAuth(url, {
+
+      const url = isNew
+        ? "/api/investor/profile/bank-accounts"
+        : `/api/investor/profile/bank-accounts/${bank.id}`;
+      const method = isNew ? "POST" : "PUT";
+
+      const response = await fetchWithAuth(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: "Failed to save bank account" }));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || "Failed to save bank account");
       }
-      const response = await res.json();
-      const savedBankData = response.data?.bank_account || response.data || {};
-      // Map backend response to frontend format
-      const savedBank = {
-        bank_id: savedBankData.id,
-        account_no: savedBankData.account_number || bank.account_no,
-        ifsc: savedBankData.ifsc_code || bank.ifsc,
-        branch: savedBankData.branch_name || bank.branch,
-        bank_name: savedBankData.bank_name || bank.bank_name || "",
-        verified: savedBankData.is_primary || false
-      };
-      const newBanks = [...user.banks];
-      newBanks[index] = savedBank;
-      setUser((prev) => ({ ...prev, banks: newBanks }));
+
       setBankEditIndex(-1);
-      setError("");
-      setSuccessMsg(isNew ? "Bank account added successfully!" : "Bank account updated successfully!");
-      // Clear success message after 3 seconds
+      setSuccessMsg(isNew ? "Bank account added successfully" : "Bank account updated successfully");
       setTimeout(() => setSuccessMsg(""), 3000);
+      fetchProfile();
     } catch (err) {
-      setError("Failed saving bank info: " + (err.message || "Unknown error"));
-      setSuccessMsg("");
+      setError(err.message || "Failed to save bank account");
     }
   };
 
   const saveNominee = async (index) => {
-    const nominee = user.nominees[index];
-    const isNew = !nominee.nominee_id;
-    const url = isNew
-      ? `/api/investor/profile/nominees`
-      : `/api/investor/profile/nominees/${nominee.nominee_id}`;
-    const method = isNew ? "POST" : "PUT";
     try {
-      // Map frontend fields to backend schema
+      const nominee = profile.nominees[index];
+      const isNew = !nominee.id;
+
       const payload = {
-        nominee_name: nominee.name,
-        relationship: nominee.relation,
-        allocation_percentage: parseFloat(nominee.pct) || 100,
-        date_of_birth: nominee.dob || new Date().toISOString().split('T')[0], // Required field, use today as default if not provided
+        nominee_name: nominee.nominee_name || nominee.name,
+        nominee_pan: nominee.nominee_pan,
+        relationship: nominee.relationship || nominee.nominee_relationship,
+        date_of_birth: nominee.date_of_birth,
+        gender: nominee.gender,
+        allocation_percentage: parseFloat(nominee.allocation_percentage || nominee.pct || 100),
+        mobile_number: nominee.mobile_number,
+        email: nominee.email,
+        address: nominee.address,
+        guardian_name: nominee.guardian_name,
+        guardian_pan: nominee.guardian_pan,
+        guardian_relation: nominee.guardian_relation || nominee.guardian_relationship,
       };
-      const res = await fetchWithAuth(url, {
+
+      const url = isNew
+        ? "/api/investor/profile/nominees"
+        : `/api/investor/profile/nominees/${nominee.id}`;
+      const method = isNew ? "POST" : "PUT";
+
+      const response = await fetchWithAuth(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: "Failed to save nominee" }));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || "Failed to save nominee");
       }
-      const response = await res.json();
-      const savedNomineeData = response.data?.nominee || response.data || {};
-      // Map backend response to frontend format
-      const savedNominee = {
-        nominee_id: savedNomineeData.id,
-        name: savedNomineeData.nominee_name || nominee.name,
-        relation: savedNomineeData.relationship || nominee.relation,
-        pct: savedNomineeData.allocation_percentage || nominee.pct || 100,
-        dob: savedNomineeData.date_of_birth || nominee.dob
-      };
-      const newNominees = [...user.nominees];
-      newNominees[index] = savedNominee;
-      setUser((prev) => ({ ...prev, nominees: newNominees }));
+
       setNomineeEditIndex(-1);
-      setError("");
-      setSuccessMsg(isNew ? "Nominee added successfully!" : "Nominee updated successfully!");
-      // Clear success message after 3 seconds
+      setSuccessMsg(isNew ? "Nominee added successfully" : "Nominee updated successfully");
       setTimeout(() => setSuccessMsg(""), 3000);
+      fetchProfile();
     } catch (err) {
-      setError("Failed saving nominee: " + (err.message || "Unknown error"));
-      setSuccessMsg("");
+      setError(err.message || "Failed to save nominee");
+    }
+  };
+
+  const deleteBank = async (index) => {
+    try {
+      const bank = profile.bank_accounts[index];
+      if (!bank.id) {
+        // Remove locally if not saved
+        setProfile((prev) => ({
+          ...prev,
+          bank_accounts: prev.bank_accounts.filter((_, i) => i !== index),
+        }));
+        setShowDeleteConfirm({ type: null, id: null, index: null });
+        return;
+      }
+
+      const response = await fetchWithAuth(`/api/investor/profile/bank-accounts/${bank.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete bank account");
+
+      setSuccessMsg("Bank account deleted successfully");
+      setTimeout(() => setSuccessMsg(""), 3000);
+      setShowDeleteConfirm({ type: null, id: null, index: null });
+      fetchProfile();
+    } catch (err) {
+      setError(err.message || "Failed to delete bank account");
+      setShowDeleteConfirm({ type: null, id: null, index: null });
     }
   };
 
   const deleteNominee = async (index) => {
-    const nominee = user.nominees[index];
-    if (!nominee.nominee_id) {
-      // Remove locally if not saved yet
-      setUser((prev) => ({
-        ...prev,
-        nominees: prev.nominees.filter((_, i) => i !== index),
-      }));
-      return;
-    }
     try {
-      const res = await fetchWithAuth(
-        `/api/investor/profile/nominees/${nominee.nominee_id}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok && res.status !== 204) {
-        const errorData = await res.json().catch(() => ({ detail: "Failed to delete nominee" }));
-        throw new Error(errorData.detail || "Failed to delete nominee");
+      const nominee = profile.nominees[index];
+      if (!nominee.id) {
+        // Remove locally if not saved
+        setProfile((prev) => ({
+          ...prev,
+          nominees: prev.nominees.filter((_, i) => i !== index),
+        }));
+        setShowDeleteConfirm({ type: null, id: null, index: null });
+        return;
       }
-      setUser((prev) => ({
-        ...prev,
-        nominees: prev.nominees.filter((_, i) => i !== index),
-      }));
-      if (nomineeEditIndex === index) setNomineeEditIndex(-1);
-      setError("");
-      setSuccessMsg("Nominee deleted successfully!");
-      // Clear success message after 3 seconds
+
+      const response = await fetchWithAuth(`/api/investor/profile/nominees/${nominee.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete nominee");
+
+      setSuccessMsg("Nominee deleted successfully");
       setTimeout(() => setSuccessMsg(""), 3000);
+      setShowDeleteConfirm({ type: null, id: null, index: null });
+      fetchProfile();
     } catch (err) {
-      setError("Failed to delete nominee: " + (err.message || "Unknown error"));
-      setSuccessMsg("");
+      setError(err.message || "Failed to delete nominee");
+      setShowDeleteConfirm({ type: null, id: null, index: null });
     }
   };
-  const deleteBank = async (index) => {
-  const bank = user.banks[index];
-  if (!bank.bank_id) {
-    // Just remove locally if not saved yet
-    setUser((prev) => ({
-      ...prev,
-      banks: prev.banks.filter((_, i) => i !== index),
-    }));
-    return;
-  }
-  try {
-    const res = await fetchWithAuth(`/api/investor/profile/bank-accounts/${bank.bank_id}`, {
-      method: "DELETE",
-    });
-    if (!res.ok && res.status !== 204) {
-      const errorData = await res.json().catch(() => ({ detail: "Failed to delete bank account" }));
-      throw new Error(errorData.detail || "Failed to delete bank account");
-    }
-    setUser((prev) => ({
-      ...prev,
-      banks: prev.banks.filter((_, i) => i !== index),
-    }));
-    if (bankEditIndex === index) setBankEditIndex(-1);
-    setError("");
-    setSuccessMsg("Bank account deleted successfully!");
-    // Clear success message after 3 seconds
-    setTimeout(() => setSuccessMsg(""), 3000);
-  } catch (error) {
-    setError("Failed to delete bank account: " + (error.message || "Unknown error"));
-    setSuccessMsg("");
-  }
-};
-
 
   const addBank = () => {
-    setUser((prev) => ({
+    setProfile((prev) => ({
       ...prev,
-      banks: [...prev.banks, { account_no: "", ifsc: "", branch: "", bank_name: "", verified: false }],
+      bank_accounts: [
+        ...prev.bank_accounts,
+        {
+          account_number: "",
+          account_holder_name: "",
+          bank_name: "",
+          branch_name: "",
+          ifsc_code: "",
+          account_type: "savings",
+        },
+      ],
     }));
-    setBankEditIndex(user.banks.length);
+    setBankEditIndex(profile.bank_accounts.length);
   };
 
   const addNominee = () => {
-    setUser((prev) => ({
+    setProfile((prev) => ({
       ...prev,
-      nominees: [...prev.nominees, { name: "", relation: "", pct: 100, dob: "" }],
+      nominees: [
+        ...prev.nominees,
+        {
+          nominee_name: "",
+          relationship: "",
+          date_of_birth: "",
+          allocation_percentage: 100,
+        },
+      ],
     }));
-    setNomineeEditIndex(user.nominees.length);
+    setNomineeEditIndex(profile.nominees.length);
   };
 
-const renderPersonalTab = () => {
-  if (personalEdit) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-          <input
-            name="name"
-            value={user.name}
-            onChange={handleField}
-            placeholder="Enter your full name"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">PAN Number</label>
-          <input
-            name="pan"
-            value={user.pan}
-            disabled
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
-          />
-          <p className="text-xs text-gray-500 mt-1">PAN cannot be changed</p>
-        </div>
+  const setPrimaryBank = async (accountId) => {
+    try {
+      const response = await fetchWithAuth(`/api/investor/profile/bank-accounts/${accountId}/primary`, {
+        method: "PUT",
+      });
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
-          <input
-            type="date"
-            name="dob"
-            value={user.dob}
-            disabled
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
-          />
-          <p className="text-xs text-gray-500 mt-1">Date of Birth cannot be changed</p>
-        </div>
+      if (!response.ok) throw new Error("Failed to set primary bank account");
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">KYC Status</label>
-          <div className="px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-              user.kyc === 'verified' ? 'bg-green-100 text-green-800' : 
-              user.kyc === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-              'bg-gray-100 text-gray-800'
-            }`}>
-              {user.kyc.charAt(0).toUpperCase() + user.kyc.slice(1)}
-            </span>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">KYC status is managed by the system</p>
-        </div>
-
-        <div className="flex gap-3 pt-4">
-          <button 
-            onClick={savePersonal} 
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-          >
-            Save Changes
-          </button>
-          <button
-            onClick={() => setPersonalEdit(false)}
-            className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <label className="block text-sm font-medium text-gray-500 mb-1">Full Name</label>
-          <p className="text-lg font-semibold text-gray-900">{user.name || "Not provided"}</p>
-        </div>
-        
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <label className="block text-sm font-medium text-gray-500 mb-1">PAN Number</label>
-          <p className="text-lg font-semibold text-gray-900">{user.pan || "Not provided"}</p>
-        </div>
-
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <label className="block text-sm font-medium text-gray-500 mb-1">Date of Birth</label>
-          <p className="text-lg font-semibold text-gray-900">
-            {user.dob ? new Date(user.dob).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : "Not provided"}
-          </p>
-        </div>
-
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <label className="block text-sm font-medium text-gray-500 mb-1">KYC Status</label>
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-1 ${
-            user.kyc === 'verified' ? 'bg-green-100 text-green-800' : 
-            user.kyc === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-            'bg-gray-100 text-gray-800'
-          }`}>
-            {user.kyc ? user.kyc.charAt(0).toUpperCase() + user.kyc.slice(1) : "Pending"}
-          </span>
-        </div>
-      </div>
-
-      <div className="pt-4">
-        <button 
-          onClick={() => setPersonalEdit(true)} 
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-        >
-          Edit Personal Information
-        </button>
-      </div>
-    </div>
-  );
-};
-
-  const renderContactTab = () =>
-    contactEdit ? (
-      <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-          <input
-            name="email"
-            value={user.email}
-            disabled
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
-          />
-          <p className="text-xs text-gray-500 mt-1">Email cannot be changed. Please contact support for email updates.</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
-          <input
-            name="phone"
-            value={user.phone}
-            onChange={handleField}
-            placeholder="Enter mobile number"
-            maxLength="10"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
-          <input
-            name="address_line1"
-            value={user.address_line1}
-            onChange={handleField}
-            placeholder="Enter address line 1"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 2 (Optional)</label>
-          <input
-            name="address_line2"
-            value={user.address_line2}
-            onChange={handleField}
-            placeholder="Enter address line 2 (optional)"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-            <input
-              name="city"
-              value={user.city}
-              onChange={handleField}
-              placeholder="Enter city"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
-            <input
-              name="state"
-              value={user.state}
-              onChange={handleField}
-              placeholder="Enter state"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Pincode</label>
-            <input
-              name="pincode"
-              value={user.pincode}
-              onChange={handleField}
-              placeholder="Enter pincode"
-              maxLength="6"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-3 pt-4">
-          <button 
-            onClick={saveContact} 
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-          >
-            Save Changes
-          </button>
-          <button
-            onClick={() => setContactEdit(false)}
-            className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    ) : (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <label className="block text-sm font-medium text-gray-500 mb-1">Email Address</label>
-            <p className="text-lg font-semibold text-gray-900">{user.email || "Not provided"}</p>
-          </div>
-
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <label className="block text-sm font-medium text-gray-500 mb-1">Mobile Number</label>
-            <p className="text-lg font-semibold text-gray-900">{user.phone || "Not provided"}</p>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <label className="block text-sm font-medium text-gray-500 mb-2">Address</label>
-          <div className="text-gray-900">
-            {user.address_line1 && <p className="text-lg">{user.address_line1}</p>}
-            {user.address_line2 && <p className="text-lg">{user.address_line2}</p>}
-            {(user.city || user.state || user.pincode) && (
-              <p className="text-lg mt-1">
-                {[user.city, user.state, user.pincode].filter(Boolean).join(", ")}
-              </p>
-            )}
-            {!user.address_line1 && !user.address_line2 && !user.city && !user.state && !user.pincode && (
-              <p className="text-gray-500">Not provided</p>
-            )}
-          </div>
-        </div>
-
-        <div className="pt-4">
-          <button 
-            onClick={() => setContactEdit(true)} 
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-          >
-            Edit Contact Information
-          </button>
-        </div>
-      </div>
-    );
-
-  const renderBankTab = () => (
-    <div>
-      {user.banks.map((bank, idx) =>
-        bankEditIndex === idx ? (
-          <div key={idx} className="border rounded p-3 mb-3 bg-gray-50">
-            <input
-              name="bank_name"
-              value={bank.bank_name || ""}
-              onChange={(e) => handleField(e, "banks", idx)}
-              placeholder="Bank Name"
-              className="input mb-2"
-            />
-            <input
-              name="account_no"
-              value={bank.account_no}
-              onChange={(e) => handleField(e, "banks", idx)}
-              placeholder="Account Number"
-              className="input mb-2"
-            />
-            <input
-              name="ifsc"
-              value={bank.ifsc}
-              onChange={(e) => handleField(e, "banks", idx)}
-              placeholder="IFSC"
-              className="input mb-2"
-            />
-            <input
-              name="branch"
-              value={bank.branch}
-              onChange={(e) => handleField(e, "banks", idx)}
-              placeholder="Branch"
-              className="input mb-2"
-            />
-            <button onClick={() => saveBank(idx)} className="bg-blue-600 px-4 py-2 text-white rounded mr-2">
-              Save
-            </button>
-            <button onClick={() => setBankEditIndex(-1)} className="bg-gray-300 px-4 py-2 rounded">
-              Cancel
-            </button>
-            <button onClick={() => deleteBank(idx)} className="ml-2 bg-red-600 text-white px-3 py-1 rounded">
-              Delete
-            </button>
-          </div>
-        ) : (
-          <div key={idx} className="border rounded p-3 mb-3 bg-gray-50">
-            <p><strong>Bank:</strong> {bank.bank_name || "N/A"}</p>
-            <p><strong>Account:</strong> {bank.account_no}</p>
-            <p><strong>IFSC:</strong> {bank.ifsc}</p>
-            <p><strong>Branch:</strong> {bank.branch}</p>
-            <button onClick={() => setBankEditIndex(idx)} className="bg-yellow-500 px-4 py-2 rounded">
-              Edit
-            </button>
-          </div>
-        )
-      )}
-      <button onClick={addBank} className="bg-green-600 px-4 py-2 rounded text-white">
-        Add Bank Account
-      </button>
-    </div>
-  );
-
-  const renderNomineeTab = () => (
-    <div>
-      {user.nominees.map((nominee, idx) =>
-        nomineeEditIndex === idx ? (
-          <div key={idx} className="border rounded p-3 mb-3 bg-gray-50">
-            <input
-              name="name"
-              value={nominee.name}
-              onChange={(e) => handleField(e, "nominees", idx)}
-              placeholder="Nominee Name"
-              className="input mb-2"
-            />
-            <select
-              name="relation"
-              value={nominee.relation}
-              onChange={(e) => handleField(e, "nominees", idx)}
-              className="input mb-2"
-            >
-              <option value="">-- Select Relation --</option>
-              {nomineeRelations.map((rel) => (
-                <option key={rel} value={rel}>{rel}</option>
-              ))}
-            </select>
-            <input
-              name="pct"
-              value={nominee.pct || 100}
-              type="number"
-              min={1}
-              max={100}
-              onChange={(e) => handleField(e, "nominees", idx)}
-              className="input mb-2"
-              placeholder="Allocation (%)"
-            />
-            <input
-              type="date"
-              name="dob"
-              value={nominee.dob || ""}
-              onChange={(e) => handleField(e, "nominees", idx)}
-              className="input mb-2"
-              placeholder="Date of Birth"
-            />
-            <button onClick={() => saveNominee(idx)} className="bg-blue-600 px-4 py-2 rounded text-white mr-2">
-              Save
-            </button>
-            <button
-              onClick={() => setNomineeEditIndex(-1)}
-              className="bg-gray-300 px-4 py-2 rounded"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => deleteNominee(idx)}
-              className="bg-red-600 px-4 py-2 rounded text-white ml-2"
-            >
-              Delete
-            </button>
-          </div>
-        ) : (
-          <div key={idx} className="border rounded p-3 mb-3 bg-gray-50">
-            <p><strong>Name:</strong> {nominee.name}</p>
-            <p><strong>Relation:</strong> {nominee.relation}</p>
-            <p><strong>Allocation:</strong> {nominee.pct}%</p>
-            <button onClick={() => setNomineeEditIndex(idx)} className="bg-yellow-500 px-4 py-2 rounded">
-              Edit
-            </button>
-          </div>
-        )
-      )}
-      <button onClick={addNominee} className="bg-green-600 px-4 py-2 rounded text-white">
-        Add Nominee
-      </button>
-    </div>
-  );
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case "personal":
-        return renderPersonalTab();
-      case "contact":
-        return renderContactTab();
-      case "bank":
-        return renderBankTab();
-      case "nominee":
-        return renderNomineeTab();
-      default:
-        return null;
+      setSuccessMsg("Primary bank account updated successfully");
+      setTimeout(() => setSuccessMsg(""), 3000);
+      fetchProfile();
+    } catch (err) {
+      setError(err.message || "Failed to set primary bank account");
     }
   };
 
-  if (!user.hasProfile)
+  const uploadDocument = async (file, documentType) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("document_type", documentType);
+
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/api/investor/profile/documents`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Failed to upload document");
+      }
+
+      setSuccessMsg("Document uploaded successfully");
+      setTimeout(() => setSuccessMsg(""), 3000);
+      fetchDocuments();
+    } catch (err) {
+      setError(err.message || "Failed to upload document");
+    }
+  };
+
+  const deleteDocument = async (documentId) => {
+    try {
+      const response = await fetchWithAuth(`/api/investor/profile/documents/${documentId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete document");
+
+      setSuccessMsg("Document deleted successfully");
+      setTimeout(() => setSuccessMsg(""), 3000);
+      fetchDocuments();
+      setShowDeleteConfirm({ type: null, id: null, index: null });
+    } catch (err) {
+      setError(err.message || "Failed to delete document");
+      setShowDeleteConfirm({ type: null, id: null, index: null });
+    }
+  };
+
+  const downloadDocument = async (documentId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/api/investor/profile/documents/${documentId}/download`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Failed to download document");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `document_${documentId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      setError(err.message || "Failed to download document");
+    }
+  };
+
+  const getKYCStatusBadge = (status) => {
+    const statusLower = status?.toLowerCase() || "";
+    if (statusLower === "verified") {
+      return "bg-green-100 text-green-800 border-green-200";
+    } else if (statusLower === "pending_verification" || statusLower === "in_progress") {
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    } else if (statusLower === "rejected") {
+      return "bg-red-100 text-red-800 border-red-200";
+    } else {
+      return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const tabs = [
+    { id: "personal", label: "Personal Info", icon: User },
+    { id: "contact", label: "Contact Info", icon: User },
+    { id: "banks", label: "Bank Accounts", icon: CreditCard },
+    { id: "nominees", label: "Nominees", icon: Users },
+    { id: "documents", label: "Documents", icon: FileText },
+  ];
+
+  if (loading) {
     return (
-      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading profile...</p>
         </div>
       </div>
     );
+  }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold text-gray-900">Investor Profile</h2>
-          <p className="text-gray-600 mt-1">Manage your personal and contact information</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Gradient Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
+        <div className="px-6 py-8">
+          <div className="flex items-center gap-3 mb-2">
+            <User className="w-8 h-8" />
+            <h1 className="text-3xl font-bold">My Profile</h1>
+          </div>
+          <p className="text-blue-100 text-lg">
+            Manage your personal information, bank accounts, and documents
+          </p>
         </div>
+      </div>
 
+      <div className="px-6 py-6 max-w-6xl mx-auto">
+        {/* Messages */}
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {error}
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-start gap-3">
+            <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-red-700">{error}</p>
           </div>
         )}
 
         {successMsg && (
-          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-            {successMsg}
+          <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+            <p className="text-green-700">{successMsg}</p>
           </div>
         )}
 
-        <div className="bg-white shadow-lg rounded-xl overflow-hidden">
-          <div className="border-b border-gray-200">
-            <div className="flex gap-1">
-              {["personal", "contact", "bank", "nominee"].map((tab) => (
+        {/* Tab Navigation */}
+        <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+          <div className="flex border-b border-gray-200 overflow-x-auto">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
                 <button
-                  key={tab}
-                  className={`px-6 py-4 font-medium transition-colors ${
-                    activeTab === tab
-                      ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                      : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
-                  }`}
+                  key={tab.id}
                   onClick={() => {
-                    setActiveTab(tab);
+                    setActiveTab(tab.id);
                     setPersonalEdit(false);
                     setContactEdit(false);
                     setBankEditIndex(-1);
                     setNomineeEditIndex(-1);
                     setError("");
-                    setDocError("");
+                    setSuccessMsg("");
                   }}
+                  className={`flex items-center gap-2 px-6 py-4 font-medium text-sm transition-colors whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? "border-b-2 border-blue-600 text-blue-600 bg-blue-50"
+                      : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
+                  }`}
                 >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  <Icon className="w-5 h-5" />
+                  {tab.label}
                 </button>
-              ))}
-            </div>
-          </div>
-          <div className="p-8">
-            {renderTabContent()}
+              );
+            })}
           </div>
         </div>
+
+        {/* Tab Content */}
+        <div className="bg-white rounded-xl shadow-lg p-8">
+          {/* Personal Info Tab */}
+          {activeTab === "personal" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
+                {!personalEdit && (
+                  <button
+                    onClick={() => setPersonalEdit(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit
+                  </button>
+                )}
+              </div>
+
+              {personalEdit ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="full_name"
+                        value={profile.full_name}
+                        onChange={handleFieldChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        PAN Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="pan_number"
+                        value={profile.pan_number}
+                        onChange={handleFieldChange}
+                        maxLength="10"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Date of Birth <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        name="date_of_birth"
+                        value={profile.date_of_birth}
+                        onChange={handleFieldChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Gender
+                      </label>
+                      <select
+                        name="gender"
+                        value={profile.gender}
+                        onChange={handleFieldChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">-- Select Gender --</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 pt-4 border-t">
+                    <button
+                      onClick={savePersonal}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Save Changes
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPersonalEdit(false);
+                        fetchProfile();
+                      }}
+                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Full Name</p>
+                      <p className="text-lg font-semibold text-gray-900">{profile.full_name || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">PAN Number</p>
+                      <p className="text-lg font-semibold text-gray-900">{profile.pan_number || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Date of Birth</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {profile.date_of_birth
+                          ? new Date(profile.date_of_birth).toLocaleDateString("en-IN")
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Gender</p>
+                      <p className="text-lg font-semibold text-gray-900 capitalize">
+                        {profile.gender || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">KYC Status</p>
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${getKYCStatusBadge(
+                          profile.kyc_status
+                        )}`}
+                      >
+                        {profile.kyc_status || "Not Started"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Investor ID</p>
+                      <p className="text-lg font-semibold text-gray-900">{profile.investor_id || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contact Info Tab */}
+          {activeTab === "contact" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Contact Information</h2>
+                {!contactEdit && (
+                  <button
+                    onClick={() => setContactEdit(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit
+                  </button>
+                )}
+              </div>
+
+              {contactEdit ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={profile.email}
+                        onChange={handleFieldChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Mobile Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        name="mobile_number"
+                        value={profile.mobile_number}
+                        onChange={handleFieldChange}
+                        maxLength="10"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Address Line 1
+                      </label>
+                      <input
+                        type="text"
+                        name="address_line1"
+                        value={profile.address_line1}
+                        onChange={handleFieldChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Address Line 2
+                      </label>
+                      <input
+                        type="text"
+                        name="address_line2"
+                        value={profile.address_line2}
+                        onChange={handleFieldChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                      <input
+                        type="text"
+                        name="city"
+                        value={profile.city}
+                        onChange={handleFieldChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                      <input
+                        type="text"
+                        name="state"
+                        value={profile.state}
+                        onChange={handleFieldChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Pincode</label>
+                      <input
+                        type="text"
+                        name="pincode"
+                        value={profile.pincode}
+                        onChange={handleFieldChange}
+                        maxLength="6"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 pt-4 border-t">
+                    <button
+                      onClick={saveContact}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Save Changes
+                    </button>
+                    <button
+                      onClick={() => {
+                        setContactEdit(false);
+                        fetchProfile();
+                      }}
+                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Email</p>
+                      <p className="text-lg font-semibold text-gray-900">{profile.email || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Mobile Number</p>
+                      <p className="text-lg font-semibold text-gray-900">{profile.mobile_number || "N/A"}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-gray-600 mb-1">Address</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {[
+                          profile.address_line1,
+                          profile.address_line2,
+                          profile.city,
+                          profile.state,
+                          profile.pincode,
+                        ]
+                          .filter(Boolean)
+                          .join(", ") || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bank Accounts Tab */}
+          {activeTab === "banks" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Bank Accounts</h2>
+                <button
+                  onClick={addBank}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Bank Account
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {profile.bank_accounts.length > 0 ? (
+                  profile.bank_accounts.map((bank, index) =>
+                    bankEditIndex === index ? (
+                      <div key={index} className="border-2 border-blue-200 rounded-xl p-6 bg-blue-50">
+                        <h3 className="text-lg font-semibold mb-4 text-gray-800">
+                          {bank.id ? "Edit Bank Account" : "Add Bank Account"}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Account Number <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="account_number"
+                              value={bank.account_number || ""}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Account Holder Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="account_holder_name"
+                              value={bank.account_holder_name || ""}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Bank Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="bank_name"
+                              value={bank.bank_name || ""}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              IFSC Code <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="ifsc_code"
+                              value={bank.ifsc_code || bank.ifsc || ""}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 uppercase"
+                              maxLength="11"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Branch Name
+                            </label>
+                            <input
+                              type="text"
+                              name="branch_name"
+                              value={bank.branch_name || bank.branch || ""}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Account Type
+                            </label>
+                            <select
+                              name="account_type"
+                              value={bank.account_type || "savings"}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="savings">Savings</option>
+                              <option value="current">Current</option>
+                              <option value="nri_nro">NRI NRO</option>
+                              <option value="nri_nre">NRI NRE</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 mt-6 pt-4 border-t">
+                          <button
+                            onClick={() => saveBank(index)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setBankEditIndex(-1);
+                              fetchProfile();
+                            }}
+                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          {bank.id && (
+                            <button
+                              onClick={() =>
+                                setShowDeleteConfirm({ type: "bank", id: bank.id, index })
+                              }
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 ml-auto"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        key={index}
+                        className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="p-3 bg-blue-100 rounded-lg">
+                                <CreditCard className="w-6 h-6 text-blue-600" />
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                  {bank.bank_name || "Bank Account"}
+                                </h3>
+                                <p className="text-sm text-gray-600">
+                                  {bank.account_holder_name || "N/A"}
+                                </p>
+                              </div>
+                              {bank.is_primary && (
+                                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                                  Primary
+                                </span>
+                              )}
+                              {bank.is_verified && (
+                                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Verified
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <p className="text-gray-600">Account Number</p>
+                                <p className="font-semibold text-gray-900">
+                                  ****{bank.account_number?.slice(-4) || "XXXX"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-600">IFSC Code</p>
+                                <p className="font-semibold text-gray-900">
+                                  {bank.ifsc_code || bank.ifsc || "N/A"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-600">Branch</p>
+                                <p className="font-semibold text-gray-900">
+                                  {bank.branch_name || bank.branch || "N/A"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-600">Account Type</p>
+                                <p className="font-semibold text-gray-900 capitalize">
+                                  {bank.account_type || "Savings"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 ml-4">
+                            {!bank.is_primary && (
+                              <button
+                                onClick={() => setPrimaryBank(bank.id)}
+                                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                              >
+                                Set Primary
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setBankEditIndex(index)}
+                              className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() =>
+                                setShowDeleteConfirm({ type: "bank", id: bank.id, index })
+                              }
+                              className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )
+                ) : (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
+                    <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">No bank accounts added yet</p>
+                    <button
+                      onClick={addBank}
+                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 mx-auto"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Bank Account
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Nominees Tab */}
+          {activeTab === "nominees" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Nominees</h2>
+                <button
+                  onClick={addNominee}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Nominee
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {profile.nominees.length > 0 ? (
+                  profile.nominees.map((nominee, index) =>
+                    nomineeEditIndex === index ? (
+                      <div key={index} className="border-2 border-blue-200 rounded-xl p-6 bg-blue-50">
+                        <h3 className="text-lg font-semibold mb-4 text-gray-800">
+                          {nominee.id ? "Edit Nominee" : "Add Nominee"}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Nominee Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="nominee_name"
+                              value={nominee.nominee_name || nominee.name || ""}
+                              onChange={(e) => handleFieldChange(e, "nominee", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Relationship <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              name="relationship"
+                              value={nominee.relationship || nominee.nominee_relationship || ""}
+                              onChange={(e) => handleFieldChange(e, "nominee", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              required
+                            >
+                              <option value="">-- Select Relationship --</option>
+                              {nomineeRelations.map((rel) => (
+                                <option key={rel} value={rel}>
+                                  {rel}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Date of Birth <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="date"
+                              name="date_of_birth"
+                              value={nominee.date_of_birth || ""}
+                              onChange={(e) => handleFieldChange(e, "nominee", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Allocation Percentage <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              name="allocation_percentage"
+                              value={nominee.allocation_percentage || nominee.pct || 100}
+                              onChange={(e) => handleFieldChange(e, "nominee", index)}
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Mobile Number
+                            </label>
+                            <input
+                              type="tel"
+                              name="mobile_number"
+                              value={nominee.mobile_number || ""}
+                              onChange={(e) => handleFieldChange(e, "nominee", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Email
+                            </label>
+                            <input
+                              type="email"
+                              name="email"
+                              value={nominee.email || ""}
+                              onChange={(e) => handleFieldChange(e, "nominee", index)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 mt-6 pt-4 border-t">
+                          <button
+                            onClick={() => saveNominee(index)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setNomineeEditIndex(-1);
+                              fetchProfile();
+                            }}
+                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          {nominee.id && (
+                            <button
+                              onClick={() =>
+                                setShowDeleteConfirm({ type: "nominee", id: nominee.id, index })
+                              }
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 ml-auto"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        key={index}
+                        className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="p-3 bg-purple-100 rounded-lg">
+                                <Users className="w-6 h-6 text-purple-600" />
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                  {nominee.nominee_name || nominee.name || "Nominee"}
+                                </h3>
+                                <p className="text-sm text-gray-600">
+                                  {nominee.relationship || nominee.nominee_relationship || "N/A"}
+                                </p>
+                              </div>
+                              {nominee.is_verified && (
+                                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Verified
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <p className="text-gray-600">Date of Birth</p>
+                                <p className="font-semibold text-gray-900">
+                                  {nominee.date_of_birth
+                                    ? new Date(nominee.date_of_birth).toLocaleDateString("en-IN")
+                                    : "N/A"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-600">Allocation</p>
+                                <p className="font-semibold text-gray-900">
+                                  {nominee.allocation_percentage || nominee.pct || 0}%
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-600">Mobile</p>
+                                <p className="font-semibold text-gray-900">
+                                  {nominee.mobile_number || "N/A"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 ml-4">
+                            <button
+                              onClick={() => setNomineeEditIndex(index)}
+                              className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() =>
+                                setShowDeleteConfirm({ type: "nominee", id: nominee.id, index })
+                              }
+                              className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )
+                ) : (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
+                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">No nominees added yet</p>
+                    <button
+                      onClick={addNominee}
+                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 mx-auto"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Nominee
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Documents Tab */}
+          {activeTab === "documents" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Documents</h2>
+                <label className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors cursor-pointer">
+                  <Upload className="w-4 h-4" />
+                  Upload Document
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      const docType = prompt("Enter document type (e.g., PAN, Aadhar, KYC):");
+                      if (file && docType) {
+                        uploadDocument(file, docType);
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-4">
+                {profile.documents.length > 0 ? (
+                  profile.documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4 flex-1">
+                          <div className="p-3 bg-blue-100 rounded-lg">
+                            <FileText className="w-6 h-6 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                              {doc.document_name || doc.name || "Document"}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-2">
+                              Type: {doc.document_type || "N/A"} | Size:{" "}
+                              {doc.file_size ? `${(doc.file_size / 1024).toFixed(2)} KB` : "N/A"}
+                            </p>
+                            <div className="flex items-center gap-4 text-sm">
+                              <span
+                                className={`px-3 py-1 rounded-full font-semibold border ${
+                                  doc.status === "verified"
+                                    ? "bg-green-100 text-green-800 border-green-200"
+                                    : doc.status === "rejected"
+                                    ? "bg-red-100 text-red-800 border-red-200"
+                                    : "bg-yellow-100 text-yellow-800 border-yellow-200"
+                                }`}
+                              >
+                                {doc.status || "Pending"}
+                              </span>
+                              {doc.uploaded_on && (
+                                <span className="text-gray-600">
+                                  Uploaded: {new Date(doc.uploaded_on).toLocaleDateString("en-IN")}
+                                </span>
+                              )}
+                            </div>
+                            {doc.rejection_reason && (
+                              <p className="text-sm text-red-600 mt-2">
+                                Reason: {doc.rejection_reason}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 ml-4">
+                          <button
+                            onClick={() => downloadDocument(doc.id)}
+                            className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Download
+                          </button>
+                          <button
+                            onClick={() =>
+                              setShowDeleteConfirm({ type: "document", id: doc.id, index: null })
+                            }
+                            className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
+                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">No documents uploaded yet</p>
+                    <label className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors cursor-pointer">
+                      <Upload className="w-4 h-4" />
+                      Upload Document
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          const docType = prompt("Enter document type (e.g., PAN, Aadhar, KYC):");
+                          if (file && docType) {
+                            uploadDocument(file, docType);
+                          }
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm.type && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="p-3 bg-red-100 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Confirm Deletion</h3>
+                <p className="text-gray-600">
+                  Are you sure you want to delete this {showDeleteConfirm.type}? This action cannot
+                  be undone.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm({ type: null, id: null, index: null })}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (showDeleteConfirm.type === "bank") {
+                    deleteBank(showDeleteConfirm.index);
+                  } else if (showDeleteConfirm.type === "nominee") {
+                    deleteNominee(showDeleteConfirm.index);
+                  } else if (showDeleteConfirm.type === "document") {
+                    deleteDocument(showDeleteConfirm.id);
+                  }
+                }}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -98,7 +98,10 @@ async def create_bank_mandate(
     """Create a new bank mandate"""
     try:
         investor_service = InvestorService(db)
-        mandate = investor_service.create_bank_mandate(current_user.investor_id, bank_data)
+        mandate = investor_service.create_bank_mandate(current_user.investor_id, bank_data.dict(exclude_unset=True))
+
+        # Commit transaction for ACID properties
+        db.commit()
 
         return {
             "message": "Bank mandate created successfully",
@@ -108,12 +111,16 @@ async def create_bank_mandate(
         }
 
     except ValueError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Create bank mandate error: {e}")
+        logger.error(f"Create bank mandate error: {e}", exc_info=True)
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create bank mandate"
@@ -136,6 +143,9 @@ async def update_bank_mandate(
             update_data.dict(exclude_unset=True)
         )
 
+        # Commit transaction for ACID properties
+        db.commit()
+
         return {
             "message": "Bank mandate updated successfully",
             "data": {
@@ -144,12 +154,16 @@ async def update_bank_mandate(
         }
 
     except ValueError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Update bank mandate error: {e}")
+        logger.error(f"Update bank mandate error: {e}", exc_info=True)
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update bank mandate"
@@ -167,17 +181,24 @@ async def delete_bank_mandate(
         investor_service = InvestorService(db)
         investor_service.delete_bank_mandate(current_user.investor_id, mandate_id)
 
+        # Commit transaction for ACID properties
+        db.commit()
+
         return {
             "message": "Bank mandate deleted successfully"
         }
 
     except ValueError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Delete bank mandate error: {e}")
+        logger.error(f"Delete bank mandate error: {e}", exc_info=True)
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete bank mandate"

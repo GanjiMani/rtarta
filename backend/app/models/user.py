@@ -48,6 +48,8 @@ class User(BaseModel):
     account_locked_until = Column(DateTime)
     password_reset_token = Column(String(255))
     password_reset_expiry = Column(DateTime)
+    password_reset_otp = Column(String(6))  # 6-digit OTP
+    otp_expiry = Column(DateTime)  # OTP expiry timestamp
 
     # Profile
     phone_number = Column(String(15))
@@ -59,8 +61,8 @@ class User(BaseModel):
     deactivation_reason = Column(Text)
 
     # Relationships
-    investor = relationship("Investor", backref="user")
-    amc = relationship("AMC", backref="users")
+    investor = relationship("Investor", back_populates="user", uselist=False)
+    amc = relationship("AMC", back_populates="users")
 
     # Password context for hashing
     _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

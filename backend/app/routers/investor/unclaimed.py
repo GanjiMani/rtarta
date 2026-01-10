@@ -113,8 +113,17 @@ async def claim_unclaimed_amount(
             )
         
         # Extract numeric ID if format is UCA001
-        if isinstance(unclaimed_id, str) and unclaimed_id.startswith("UCA"):
-            unclaimed_id = int(unclaimed_id[3:])
+        try:
+            if isinstance(unclaimed_id, str) and unclaimed_id.startswith("UCA"):
+                unclaimed_id = int(unclaimed_id[3:])
+            elif isinstance(unclaimed_id, str):
+                # Try to convert string number to int
+                unclaimed_id = int(unclaimed_id)
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid unclaimed_id format"
+            )
         
         # Get unclaimed amount
         unclaimed = db.query(UnclaimedAmount).filter(
