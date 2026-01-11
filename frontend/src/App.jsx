@@ -25,7 +25,7 @@ import SwitchSetup from "./pages/investor/SwitchSetup";
 import CapitalGainsReport from "./pages/investor/CapitalGainsReport";
 import ValuationReport from "./pages/investor/ValuationReport";
 import CASDownload from "./pages/investor/CASDownload";
-import BankMandates from "./pages/investor/BankMandates";
+import BankMandates from "./pages/investor/MandateManagement";
 import NomineeManagement from "./pages/investor/NomineeManagement";
 import SecuritySettings from "./pages/investor/SecuritySettings";
 import ServiceRequests from "./pages/investor/ServiceRequests";

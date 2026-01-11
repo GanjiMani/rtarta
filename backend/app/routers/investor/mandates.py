@@ -5,20 +5,21 @@ from app.db.session import get_db
 from app.core.jwt import get_current_investor
 from app.services.mandate_service import MandateService
 from app.schemas.investor import MandateRegistration, MandateUpdate
+from app.models.user import User
 import logging
 
-router = APIRouter(prefix="/mandates", tags=["Mandates"])
+router = APIRouter(tags=["Mandates"])
 logger = logging.getLogger(__name__)
 
 @router.get("/bank")
 def get_bank_mandates(
-    current_investor: dict = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """List all bank mandates (alias for compatibility)"""
     from app.models.mandate import BankAccount
     banks = db.query(BankAccount).filter(
-        BankAccount.investor_id == current_investor["investor_id"]
+        BankAccount.investor_id == current_investor.investor_id
     ).all()
     
     return {
@@ -42,7 +43,7 @@ def get_bank_mandates(
 @router.post("/bank")
 def register_bank_mandate_alias(
     registration: MandateRegistration,
-    current_investor: dict = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """Alias for registering a bank mandate via /bank"""
@@ -52,14 +53,14 @@ def register_bank_mandate_alias(
 @router.delete("/bank/{bank_account_id}")
 def delete_bank_mandate_alias(
     bank_account_id: int,
-    current_investor: dict = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """Alias for deleting a bank mandate via /bank"""
     from app.models.mandate import BankAccount
     bank_account = db.query(BankAccount).filter(
         BankAccount.id == bank_account_id,
-        BankAccount.investor_id == current_investor["investor_id"]
+        BankAccount.investor_id == current_investor.investor_id
     ).first()
 
     if not bank_account:
@@ -78,13 +79,13 @@ def delete_bank_mandate_alias(
 @router.post("/register")
 def register_mandate(
     registration: MandateRegistration,
-    current_investor: dict = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """Register a new bank mandate"""
     service = MandateService(db)
     try:
-        bank_account = service.register_mandate(current_investor["investor_id"], registration)
+        bank_account = service.register_mandate(current_investor.investor_id, registration)
         return {
             "message": "Mandate registration initiated",
             "bank_account_id": bank_account.id,
@@ -100,26 +101,26 @@ def register_mandate(
 @router.get("/status/{bank_account_id}")
 def get_mandate_status(
     bank_account_id: int,
-    current_investor: dict = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """Get status of a mandate"""
     service = MandateService(db)
     try:
-        return service.get_mandate_status(current_investor["investor_id"], bank_account_id)
+        return service.get_mandate_status(current_investor.investor_id, bank_account_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.put("/verify/{bank_account_id}")
 def verify_mandate(
     bank_account_id: int,
-    current_investor: dict = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """Verify/Activate a mandate (Mock simulation)"""
     service = MandateService(db)
     try:
-        bank_account = service.verify_mandate(current_investor["investor_id"], bank_account_id)
+        bank_account = service.verify_mandate(current_investor.investor_id, bank_account_id)
         return {
             "message": "Mandate verified and activated",
             "status": bank_account.mandate_status.value,
@@ -130,14 +131,14 @@ def verify_mandate(
 
 @router.get("/active-eligible")
 def get_active_eligible_banks(
-    current_investor: dict = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """List bank accounts with active mandates eligible for SIP setup"""
     from app.models.mandate import BankAccount, MandateStatus
     
     banks = db.query(BankAccount).filter(
-        BankAccount.investor_id == current_investor["investor_id"],
+        BankAccount.investor_id == current_investor.investor_id,
         BankAccount.mandate_status == MandateStatus.active
     ).all()
     
