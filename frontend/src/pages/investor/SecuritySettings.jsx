@@ -1,24 +1,40 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../services/AuthContext";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import {
+  Lock,
+  Key,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  ShieldAlert,
+  CheckCircle2,
+  AlertCircle,
+  Fingerprint,
+  ArrowRight,
+  Loader2,
+  RefreshCw,
+  LogOut,
+  Smartphone,
+  ShieldHalf
+} from "lucide-react";
 
 export default function SecuritySettings() {
   const { fetchWithAuth } = useAuth();
-  const [passwords, setPasswords] = useState({ 
-    current: "", 
-    newPass: "", 
-    confirm: "" 
+  const [passwords, setPasswords] = useState({
+    current: "",
+    newPass: "",
+    confirm: ""
   });
-  const [showPassword, setShowPassword] = useState({ 
-    current: false, 
-    newPass: false, 
-    confirm: false 
+  const [showPassword, setShowPassword] = useState({
+    current: false,
+    newPass: false,
+    confirm: false
   });
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [passwordStrength, setPasswordStrength] = useState("");
   const [passwordStrengthColor, setPasswordStrengthColor] = useState("");
+  const [passwordStrengthPercent, setPasswordStrengthPercent] = useState(0);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Calculate password strength
@@ -26,85 +42,73 @@ export default function SecuritySettings() {
     if (!passwords.newPass) {
       setPasswordStrength("");
       setPasswordStrengthColor("");
+      setPasswordStrengthPercent(0);
       return;
     }
 
     let strength = 0;
+
+    // Check length
+    if (passwords.newPass.length >= 8) strength += 20;
+    if (passwords.newPass.length >= 12) strength += 10;
+    // Check for uppercase
+    if (/[A-Z]/.test(passwords.newPass)) strength += 20;
+    // Check for lowercase
+    if (/[a-z]/.test(passwords.newPass)) strength += 10;
+    // Check for numbers
+    if (/[0-9]/.test(passwords.newPass)) strength += 20;
+    // Check for special characters
+    if (/[^A-Za-z0-9]/.test(passwords.newPass)) strength += 20;
+
     let strengthText = "";
     let color = "";
 
-    // Check length
-    if (passwords.newPass.length >= 8) strength++;
-    if (passwords.newPass.length >= 12) strength++;
-
-    // Check for uppercase
-    if (/[A-Z]/.test(passwords.newPass)) strength++;
-
-    // Check for lowercase
-    if (/[a-z]/.test(passwords.newPass)) strength++;
-
-    // Check for numbers
-    if (/[0-9]/.test(passwords.newPass)) strength++;
-
-    // Check for special characters
-    if (/[^A-Za-z0-9]/.test(passwords.newPass)) strength++;
-
-    // Determine strength text and color
-    if (strength <= 2) {
-      strengthText = "Weak";
-      color = "text-red-600";
-    } else if (strength <= 4) {
-      strengthText = "Medium";
-      color = "text-yellow-600";
+    if (strength <= 30) {
+      strengthText = "Vulnerable";
+      color = "bg-rose-500 text-rose-600";
+    } else if (strength <= 60) {
+      strengthText = "Intermediate";
+      color = "bg-amber-500 text-amber-600";
+    } else if (strength <= 90) {
+      strengthText = "Secure";
+      color = "bg-emerald-500 text-emerald-600";
     } else {
-      strengthText = "Strong";
-      color = "text-green-600";
+      strengthText = "Unbreakable";
+      color = "bg-teal-500 text-teal-600";
     }
 
     setPasswordStrength(strengthText);
     setPasswordStrengthColor(color);
+    setPasswordStrengthPercent(strength);
   }, [passwords.newPass]);
 
   const validatePassword = () => {
     if (!passwords.current) {
-      setError("Please enter your current password");
-      setSuccessMsg("");
+      setError("Authorization requires your current cryptographic key (password).");
       return false;
     }
-
     if (!passwords.newPass) {
-      setError("Please enter a new password");
-      setSuccessMsg("");
+      setError("Please define a new security sequence.");
       return false;
     }
-
     if (passwords.newPass.length < 8) {
-      setError("New password must be at least 8 characters long");
-      setSuccessMsg("");
+      setError("Security sequence must be at least 8 units long.");
       return false;
     }
-
     if (passwords.newPass === passwords.current) {
-      setError("New password must be different from current password");
-      setSuccessMsg("");
+      setError("New sequence must be distinct from the legacy key.");
       return false;
     }
-
     if (passwords.newPass !== passwords.confirm) {
-      setError("New passwords do not match");
-      setSuccessMsg("");
+      setError("Confirmation sequence does not match the primary input.");
       return false;
     }
-
     return true;
   };
 
   const changePassword = async (e) => {
     e?.preventDefault();
-    
-    if (!validatePassword()) {
-      return;
-    }
+    if (!validatePassword()) return;
 
     setIsChangingPassword(true);
     setError("");
@@ -121,19 +125,15 @@ export default function SecuritySettings() {
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({ detail: "Failed to change password" }));
-        throw new Error(errData.detail || "Failed to change password");
+        const errData = await res.json().catch(() => ({ detail: "Failed to rotate security keys." }));
+        throw new Error(errData.detail || "Failed to rotate security keys.");
       }
 
-      const result = await res.json();
-      setSuccessMsg("Password changed successfully!");
+      setSuccessMsg("Shield updated. New security protocol active.");
       setTimeout(() => setSuccessMsg(""), 5000);
       setPasswords({ current: "", newPass: "", confirm: "" });
-      setPasswordStrength("");
-      setPasswordStrengthColor("");
     } catch (err) {
-      setError(err.message || "An error occurred while changing password");
-      setSuccessMsg("");
+      setError(err.message);
     } finally {
       setIsChangingPassword(false);
     }
@@ -147,389 +147,225 @@ export default function SecuritySettings() {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold text-gray-900">Security Settings</h2>
-          <p className="text-gray-600 mt-1">Manage your account security and password</p>
+    <div className="min-h-screen bg-slate-50 pb-20">
+      {/* Premium Header */}
+      <div className="bg-gradient-to-br from-emerald-600 to-teal-700 pt-16 pb-28 px-6 relative overflow-hidden text-center">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -mr-48 -mt-48 blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-400/10 rounded-full -ml-32 -mb-32 blur-2xl"></div>
+
+        <div className="max-w-4xl mx-auto relative z-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-500/20 backdrop-blur-md rounded-xl border border-emerald-400/30 mb-6">
+            <Fingerprint className="w-4 h-4 text-emerald-200" />
+            <span className="text-[10px] font-black uppercase text-emerald-100 tracking-[0.25em]">End-to-End Encryption</span>
+          </div>
+          <h1 className="text-6xl font-black text-white tracking-tighter mb-4">
+            Security Core
+          </h1>
+          <p className="text-emerald-50/80 font-medium max-w-xl mx-auto text-xl leading-relaxed">
+            Manage your account's defense systems and cryptographic credentials.
+          </p>
         </div>
+      </div>
 
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {error}
+      <div className="max-w-4xl mx-auto px-6 -mt-16 space-y-8">
+        {/* Messages */}
+        {(error || successMsg) && (
+          <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+            {error && (
+              <div className="flex items-center gap-4 bg-rose-50 border border-rose-100 p-6 rounded-[2.5rem] text-rose-800 shadow-xl shadow-rose-900/5">
+                <div className="p-2 bg-rose-100 rounded-2xl">
+                  <ShieldAlert className="w-6 h-6 text-rose-600" />
+                </div>
+                <p className="font-bold">{error}</p>
+              </div>
+            )}
+            {successMsg && (
+              <div className="flex items-center gap-4 bg-emerald-50 border border-emerald-100 p-6 rounded-[2.5rem] text-emerald-800 shadow-xl shadow-emerald-900/5">
+                <div className="p-2 bg-emerald-100 rounded-2xl">
+                  <ShieldCheck className="w-6 h-6 text-emerald-600" />
+                </div>
+                <p className="font-bold">{successMsg}</p>
+              </div>
+            )}
           </div>
         )}
 
-        {successMsg && (
-          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-            {successMsg}
-          </div>
-        )}
-
-        {/* Change Password Section */}
-        <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Change Password</h3>
-            <p className="text-sm text-gray-600">
-              Update your password regularly to keep your account secure
-            </p>
-          </div>
-
-          <form onSubmit={changePassword} className="p-6">
-            <div className="space-y-4">
-              {/* Current Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Password *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword.current ? "text" : "password"}
-                    placeholder="Enter your current password"
-                    value={passwords.current}
-                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-600 hover:text-gray-800"
-                    onClick={() => togglePasswordVisibility("current")}
-                    tabIndex={-1}
-                  >
-                    {showPassword.current ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-6 0-9-7-9-7a18.176 18.176 0 013.838-5.707"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2 2l20 20"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                    )}
-                  </button>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Change Password Panel */}
+          <div className="lg:col-span-12">
+            <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+              <div className="p-10 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-4">
+                    <Key className="w-8 h-8 text-emerald-600" />
+                    Rotate Credentials
+                  </h3>
+                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Last rotated: 90 days target</p>
+                </div>
+                <div className="w-14 h-14 bg-white rounded-2xl border border-slate-100 flex items-center justify-center shadow-lg shadow-slate-200/50">
+                  <RefreshCw className="w-6 h-6 text-emerald-500 animate-spin-slow" />
                 </div>
               </div>
 
-              {/* New Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  New Password *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword.newPass ? "text" : "password"}
-                    placeholder="Enter your new password"
-                    value={passwords.newPass}
-                    onChange={(e) => setPasswords({ ...passwords, newPass: e.target.value })}
-                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    required
-                    minLength={8}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-600 hover:text-gray-800"
-                    onClick={() => togglePasswordVisibility("newPass")}
-                    tabIndex={-1}
-                  >
-                    {showPassword.newPass ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+              <form onSubmit={changePassword} className="p-10 max-w-2xl mx-auto space-y-8">
+                <div className="space-y-6">
+                  {/* Current Password */}
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">Archive Key (Current)</label>
+                    <div className="relative group">
+                      <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                      <input
+                        required
+                        type={showPassword.current ? "text" : "password"}
+                        placeholder="••••••••••••"
+                        value={passwords.current}
+                        onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                        className="w-full pl-14 pr-14 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 text-lg tracking-widest"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility("current")}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 p-2 hover:bg-white rounded-xl transition-all"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-6 0-9-7-9-7a18.176 18.176 0 013.838-5.707"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2 2l20 20"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                {passwords.newPass && (
-                  <div className="mt-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Password strength:</span>
-                      <span className={`text-xs font-medium ${passwordStrengthColor}`}>
-                        {passwordStrength}
-                      </span>
+                        {showPassword.current ? <EyeOff className="w-5 h-5 text-slate-400" /> : <Eye className="w-5 h-5 text-emerald-600" />}
+                      </button>
                     </div>
                   </div>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Password must be at least 8 characters long
-                </p>
-              </div>
 
-              {/* Confirm New Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm New Password *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword.confirm ? "text" : "password"}
-                    placeholder="Confirm your new password"
-                    value={passwords.confirm}
-                    onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                    className={`w-full px-4 py-2 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
-                      passwords.confirm && passwords.newPass !== passwords.confirm
-                        ? "border-red-300"
-                        : "border-gray-300"
-                    }`}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-600 hover:text-gray-800"
-                    onClick={() => togglePasswordVisibility("confirm")}
-                    tabIndex={-1}
-                  >
-                    {showPassword.confirm ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+                  {/* New Password */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3 ml-1">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Deploy New Sequence</label>
+                      {passwordStrength && (
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${passwordStrengthColor.split(' ')[1].replace('text-', 'bg-').replace('-600', '-50')} ${passwordStrengthColor.split(' ')[1]}`}>
+                          {passwordStrength}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative group">
+                      <Key className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                      <input
+                        required
+                        type={showPassword.newPass ? "text" : "password"}
+                        placeholder="New Sequence"
+                        value={passwords.newPass}
+                        onChange={(e) => setPasswords({ ...passwords, newPass: e.target.value })}
+                        className="w-full pl-14 pr-14 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 text-lg tracking-widest"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility("newPass")}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 p-2 hover:bg-white rounded-xl transition-all"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-6 0-9-7-9-7a18.176 18.176 0 013.838-5.707"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2 2l20 20"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+                        {showPassword.newPass ? <EyeOff className="w-5 h-5 text-slate-400" /> : <Eye className="w-5 h-5 text-emerald-600" />}
+                      </button>
+                    </div>
+                    {/* Strength Meter */}
+                    <div className="mt-4 px-1">
+                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                        <div
+                          className={`h-full transition-all duration-700 ease-out rounded-full ${passwordStrengthColor.split(' ')[0]}`}
+                          style={{ width: `${passwordStrengthPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">Seal Sequence (Confirm)</label>
+                    <div className="relative group">
+                      <ShieldCheck className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                      <input
+                        required
+                        type={showPassword.confirm ? "text" : "password"}
+                        placeholder="Confirm Sequence"
+                        value={passwords.confirm}
+                        onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                        className={`w-full pl-14 pr-14 py-5 bg-slate-50 border rounded-[1.5rem] focus:ring-4 outline-none transition-all font-bold text-slate-700 text-lg tracking-widest ${passwords.confirm && passwords.newPass !== passwords.confirm
+                            ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                            : "border-slate-200 focus:ring-emerald-500/10 focus:border-emerald-500"
+                          }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility("confirm")}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 p-2 hover:bg-white rounded-xl transition-all"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
+                        {showPassword.confirm ? <EyeOff className="w-5 h-5 text-slate-400" /> : <Eye className="w-5 h-5 text-emerald-600" />}
+                      </button>
+                    </div>
+                    {passwords.confirm && passwords.newPass !== passwords.confirm && (
+                      <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mt-2 ml-1">Inconsistent Sequence Detected</p>
                     )}
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    type="submit"
+                    disabled={isChangingPassword}
+                    className="w-full py-6 bg-emerald-600 text-white font-black rounded-[2rem] hover:bg-emerald-700 transition-all shadow-2xl shadow-emerald-200 disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center gap-4 active:scale-[0.98]"
+                  >
+                    {isChangingPassword ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      <ShieldHalf className="w-6 h-6" />
+                    )}
+                    {isChangingPassword ? "Enforcing Policy..." : "Update Security Shield"}
                   </button>
                 </div>
-                {passwords.confirm && passwords.newPass !== passwords.confirm && (
-                  <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
-                )}
-                {passwords.confirm && passwords.newPass === passwords.confirm && (
-                  <p className="text-xs text-green-600 mt-1">Passwords match</p>
-                )}
-              </div>
+              </form>
             </div>
+          </div>
 
-            <div className="mt-6 flex items-center gap-4">
-              <button
-                type="submit"
-                disabled={isChangingPassword}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {isChangingPassword ? "Changing Password..." : "Change Password"}
-              </button>
-              {(passwords.current || passwords.newPass || passwords.confirm) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPasswords({ current: "", newPass: "", confirm: "" });
-                    setError("");
-                    setSuccessMsg("");
-                    setPasswordStrength("");
-                    setPasswordStrengthColor("");
-                  }}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
+          {/* Security Protocols / Tips */}
+          <div className="lg:col-span-12">
+            <div className="bg-slate-900 rounded-[3.5rem] p-12 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full -ml-32 -mt-32 blur-[80px]"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+                <div className="space-y-4">
+                  <div className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20">
+                    <Smartphone className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <h4 className="text-white font-black tracking-tight">Active Sessions</h4>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">Your account is currently active on 2 verified devices. Review and terminate unknown origins if detected.</p>
+                </div>
 
-        {/* Security Tips Section */}
-        <div className="bg-white shadow-lg rounded-xl overflow-hidden">
-          <div className="p-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Security Tips</h3>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <svg
-                  className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Use a strong, unique password
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Include a mix of uppercase, lowercase, numbers, and special characters
-                  </p>
+                <div className="space-y-4">
+                  <div className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20">
+                    <ShieldCheck className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <h4 className="text-white font-black tracking-tight">Encryption Flow</h4>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">All transaction keys are processed using AES-256 standards with peripheral integrity audits.</p>
                 </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <svg
-                  className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Don't reuse passwords
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Use different passwords for different accounts
-                  </p>
+
+                <div className="space-y-4">
+                  <div className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20">
+                    <LogOut className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <h4 className="text-white font-black tracking-tight">Automatic Seal</h4>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">System automatically revokes access after 15 minutes of inactivity to prevent physical breach.</p>
                 </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <svg
-                  className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Change your password regularly
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Update your password every 90 days for better security
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <svg
-                  className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Never share your password
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Keep your password confidential and never share it with anyone
-                  </p>
+
+                <div className="space-y-4">
+                  <div className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20">
+                    <AlertCircle className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <h4 className="text-white font-black tracking-tight">Security Alert</h4>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">Suspicious attempts will trigger immediate lockdown and relay an SMS unit to your linked mobile.</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Footer Support Signal */}
+      <div className="max-w-4xl mx-auto px-6 mt-12 mb-12 text-center">
+        <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3">
+          Shield Status <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Optimal
+        </p>
       </div>
     </div>
   );

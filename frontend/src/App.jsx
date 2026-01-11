@@ -28,7 +28,6 @@ import CASDownload from "./pages/investor/CASDownload";
 import BankMandates from "./pages/investor/BankMandates";
 import NomineeManagement from "./pages/investor/NomineeManagement";
 import SecuritySettings from "./pages/investor/SecuritySettings";
-import MandateManagement from "./pages/investor/MandateManagement";
 import ServiceRequests from "./pages/investor/ServiceRequests";
 import Notifications from "./pages/investor/Notifications";
 import Support from "./pages/investor/Support";
@@ -130,7 +129,7 @@ export default function App() {
         <Route path="profile/banks" element={<ProtectedRoute><BankMandates /></ProtectedRoute>} />
         <Route path="profile/nominees" element={<ProtectedRoute><NomineeManagement /></ProtectedRoute>} />
         <Route path="profile/security" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
-        <Route path="mandates" element={<ProtectedRoute><MandateManagement /></ProtectedRoute>} />
+        <Route path="mandates" element={<ProtectedRoute><BankMandates /></ProtectedRoute>} />
         <Route path="service-requests" element={<ProtectedRoute><ServiceRequests /></ProtectedRoute>} />
         <Route path="notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="support" element={<ProtectedRoute><Support /></ProtectedRoute>} />

@@ -9,6 +9,7 @@ from .folio import Folio
 from .transaction import Transaction
 from .document import Document
 from .unclaimed import UnclaimedAmount
+from .service_request import ServiceRequest, ServiceRequestType, ServiceRequestStatus, ServiceRequestPriority
 from .admin import (
     AdminUser, Approval, AuditLog, SystemAlert, BatchJob, Reconciliation,
     Exception, UserSession, SystemSetting, RegulatoryFiling
@@ -18,7 +19,7 @@ from .admin import (
 __all__ = [
     "User", "AMC", "Scheme", "Investor",
     "BankAccount", "Nominee", "SIPRegistration", "SWPRegistration", "STPRegistration",
-    "Folio", "Transaction", "Document", "UnclaimedAmount",
+    "Folio", "Transaction", "Document", "UnclaimedAmount", "ServiceRequest",
     "AdminUser", "Approval", "AuditLog", "SystemAlert", "BatchJob", "Reconciliation",
     "Exception", "UserSession", "SystemSetting", "RegulatoryFiling"
 ]

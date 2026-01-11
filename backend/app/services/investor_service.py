@@ -9,7 +9,8 @@ from app.models.folio import Folio, FolioStatus
 from app.models.transaction import Transaction
 from app.models.scheme import Scheme
 from app.core.security import get_password_hash
-from app.schemas.investor import InvestorCreate, BankAccountCreate, NomineeCreate
+from app.schemas.investor import InvestorCreate, BankAccountCreate, NomineeCreate, MandateRegistration
+from app.services.mandate_service import MandateService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -251,8 +252,13 @@ class InvestorService:
             raise ValueError("Nominee not found")
 
         for key, value in update_data.items():
-            if hasattr(nominee, key) and value is not None:
-                setattr(nominee, key, value)
+            # Map relationship field from schema to model field name
+            actual_key = key
+            if key == 'relationship':
+                actual_key = 'nominee_relationship'
+            
+            if hasattr(nominee, actual_key) and value is not None:
+                setattr(nominee, actual_key, value)
 
         self.db.flush()
         self.db.refresh(nominee)
@@ -502,66 +508,28 @@ class InvestorService:
         ).order_by(Transaction.transaction_date.desc()).all()
 
     def create_bank_mandate(self, investor_id: str, bank_data: Dict[str, Any]) -> BankAccount:
-        """Create bank mandate (updates mandate fields on existing bank account)"""
-        # Find the bank account by ID
-        bank_account_id = bank_data.get('bank_account_id') or bank_data.get('id')
-        if not bank_account_id:
-            raise ValueError("bank_account_id is required")
-
-        bank_account = self.db.query(BankAccount).filter(
-            BankAccount.id == bank_account_id,
-            BankAccount.investor_id == investor_id
-        ).first()
-
-        if not bank_account:
-            raise ValueError("Bank account not found")
-
-        # Update mandate-related fields
-        from app.models.mandate import MandateType, MandateStatus
-        from datetime import date as date_obj
-
-        if 'mandate_type' in bank_data:
-            mandate_type = bank_data['mandate_type']
-            if isinstance(mandate_type, str):
-                bank_account.mandate_type = MandateType[mandate_type.lower()]
-            else:
-                bank_account.mandate_type = mandate_type
-
-        if 'mandate_status' in bank_data:
-            mandate_status = bank_data['mandate_status']
-            if isinstance(mandate_status, str):
-                bank_account.mandate_status = MandateStatus[mandate_status.lower()]
-            else:
-                bank_account.mandate_status = mandate_status
-
-        if 'mandate_id' in bank_data:
-            bank_account.mandate_id = bank_data['mandate_id']
-
-        if 'mandate_amount_limit' in bank_data:
-            bank_account.mandate_amount_limit = bank_data['mandate_amount_limit']
-
-        if 'mandate_umrn' in bank_data:
-            bank_account.mandate_umrn = bank_data['mandate_umrn']
-
-        if 'mandate_registration_date' in bank_data:
-            bank_account.mandate_registration_date = bank_data['mandate_registration_date']
-
-        if 'mandate_expiry_date' in bank_data:
-            bank_account.mandate_expiry_date = bank_data['mandate_expiry_date']
-
-        # Set default values if mandate is being created
-        if not bank_account.mandate_status:
-            bank_account.mandate_status = MandateStatus.active
-        if not bank_account.mandate_registration_date:
-            bank_account.mandate_registration_date = date_obj.today()
-
-        self.db.flush()
-        self.db.refresh(bank_account)
-        return bank_account
+        """Create bank mandate (delegated to MandateService)"""
+        mandate_service = MandateService(self.db)
+        
+        # Prepare registration data
+        reg_data = MandateRegistration(
+            bank_account_id=bank_data.get('bank_account_id') or bank_data.get('id'),
+            mandate_type=bank_data.get('mandate_type', 'net_banking'),
+            mandate_amount_limit=bank_data.get('mandate_amount_limit', 100000),
+            mandate_expiry_date=bank_data.get('mandate_expiry_date'),
+            upi_id=bank_data.get('upi_id')
+        )
+        
+        return mandate_service.register_mandate(investor_id, reg_data)
 
     def update_bank_mandate(self, investor_id: str, mandate_id: int, update_data: Dict[str, Any]) -> BankAccount:
-        """Update bank mandate (updates mandate fields on bank account)"""
-        # mandate_id is actually bank_account_id
+        """Update bank mandate (delegated to MandateService)"""
+        mandate_service = MandateService(self.db)
+        # For simplicity, we use update_mandate_status if status is provided
+        if 'mandate_status' in update_data:
+            return mandate_service.update_mandate_status(mandate_id, update_data['mandate_status'])
+        
+        # Otherwise fall back to manual update on model
         bank_account = self.db.query(BankAccount).filter(
             BankAccount.id == mandate_id,
             BankAccount.investor_id == investor_id
@@ -570,9 +538,7 @@ class InvestorService:
         if not bank_account:
             raise ValueError("Bank mandate not found")
 
-        # Update mandate-related fields
         from app.models.mandate import MandateType, MandateStatus
-
         for key, value in update_data.items():
             if hasattr(bank_account, key) and value is not None:
                 if key == 'mandate_type' and isinstance(value, str):
@@ -583,7 +549,6 @@ class InvestorService:
                     setattr(bank_account, key, value)
 
         self.db.flush()
-        self.db.refresh(bank_account)
         return bank_account
 
     def delete_bank_mandate(self, investor_id: str, mandate_id: int) -> bool:
@@ -634,5 +599,5 @@ class InvestorService:
             "date_of_birth": nominee.date_of_birth.isoformat() if nominee.date_of_birth else None,
             "allocation_percentage": float(nominee.allocation_percentage) if nominee.allocation_percentage else 0.0,
             "guardian_name": nominee.guardian_name,
-            "guardian_relationship": nominee.guardian_relationship
+            "guardian_relation": nominee.guardian_relation
         }

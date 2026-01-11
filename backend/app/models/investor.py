@@ -119,6 +119,7 @@ class Investor(BaseModel):
     user = relationship("User", back_populates="investor")
     documents = relationship("Document", back_populates="investor", cascade="all, delete-orphan")
     unclaimed_amounts = relationship("UnclaimedAmount", back_populates="investor", cascade="all, delete-orphan")
+    service_requests = relationship("ServiceRequest", back_populates="investor", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Investor(id={self.id}, investor_id={self.investor_id}, name={self.full_name}, kyc_status={self.kyc_status.value})>"

@@ -54,7 +54,7 @@ export default function Profile() {
       if (!response.ok) throw new Error("Failed to fetch profile");
       const data = await response.json();
       const profileData = data.data || {};
-      
+
       setProfile({
         investor_id: profileData.investor_id || "",
         full_name: profileData.full_name || "",
@@ -449,27 +449,45 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 font-medium">Loading profile...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50/50">
       {/* Gradient Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
-        <div className="px-6 py-8">
-          <div className="flex items-center gap-3 mb-2">
-            <User className="w-8 h-8" />
-            <h1 className="text-3xl font-bold">My Profile</h1>
+      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-xl">
+        <div className="absolute inset-0 bg-grid-white/[0.1] bg-[size:20px_20px]"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+
+        <div className="relative px-6 py-12 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl shadow-inner">
+                <User className="w-10 h-10 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-extrabold tracking-tight">Investor Profile</h1>
+                <p className="text-emerald-50/80 text-lg mt-1 font-medium">
+                  Manage your personal security and investment identity
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className={`px-4 py-1.5 rounded-full text-sm font-bold border backdrop-blur-md shadow-sm ${profile.kyc_status?.toLowerCase() === 'verified'
+                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-50'
+                : 'bg-amber-500/20 border-amber-400 text-amber-50'
+                }`}>
+                KYC: {profile.kyc_status?.replace('_', ' ').toUpperCase() || 'NOT STARTED'}
+              </span>
+            </div>
           </div>
-          <p className="text-blue-100 text-lg">
-            Manage your personal information, bank accounts, and documents
-          </p>
         </div>
       </div>
 
@@ -490,10 +508,11 @@ export default function Profile() {
         )}
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-          <div className="flex border-b border-gray-200 overflow-x-auto">
+        <div className="bg-white/80 backdrop-blur-md sticky top-4 z-20 rounded-2xl shadow-lg border border-slate-200 mb-8 overflow-hidden">
+          <div className="flex border-b border-slate-100 overflow-x-auto no-scrollbar">
             {tabs.map((tab) => {
               const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
@@ -506,14 +525,16 @@ export default function Profile() {
                     setError("");
                     setSuccessMsg("");
                   }}
-                  className={`flex items-center gap-2 px-6 py-4 font-medium text-sm transition-colors whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? "border-b-2 border-blue-600 text-blue-600 bg-blue-50"
-                      : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
-                  }`}
+                  className={`flex items-center gap-2.5 px-8 py-5 font-bold text-sm transition-all relative whitespace-nowrap ${isActive
+                    ? "text-emerald-700 bg-emerald-50/50"
+                    : "text-slate-500 hover:text-emerald-600 hover:bg-slate-50"
+                    }`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
                   {tab.label}
+                  {isActive && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-600 rounded-t-full"></div>
+                  )}
                 </button>
               );
             })}
@@ -521,43 +542,47 @@ export default function Profile() {
         </div>
 
         {/* Tab Content */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-200 p-10 min-h-[600px]">
           {/* Personal Info Tab */}
           {activeTab === "personal" && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-100">
+                <div>
+                  <h2 className="text-3xl font-extrabold text-slate-800">Personal Identity</h2>
+                  <p className="text-slate-500 mt-1 font-medium">Verify and update your basic identification details</p>
+                </div>
                 {!personalEdit && (
                   <button
                     onClick={() => setPersonalEdit(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-2.5 px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
                   >
                     <Edit2 className="w-4 h-4" />
-                    Edit
+                    Edit Profile
                   </button>
                 )}
               </div>
 
               {personalEdit ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name <span className="text-red-500">*</span>
+                <div className="space-y-8 max-w-4xl">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">
+                        Full Name <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
                         name="full_name"
                         value={profile.full_name}
                         onChange={handleFieldChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                        placeholder="John Doe"
                         required
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        PAN Number <span className="text-red-500">*</span>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">
+                        PAN Number <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -565,34 +590,35 @@ export default function Profile() {
                         value={profile.pan_number}
                         onChange={handleFieldChange}
                         maxLength="10"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium uppercase tracking-widest"
+                        placeholder="ABCDE1234F"
                         required
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Date of Birth <span className="text-red-500">*</span>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">
+                        Date of Birth <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="date"
                         name="date_of_birth"
                         value={profile.date_of_birth}
                         onChange={handleFieldChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
                         required
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">
                         Gender
                       </label>
                       <select
                         name="gender"
                         value={profile.gender}
                         onChange={handleFieldChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
                       >
                         <option value="">-- Select Gender --</option>
                         <option value="male">Male</option>
@@ -602,64 +628,65 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 pt-4 border-t">
+                  <div className="flex items-center gap-4 pt-8 mt-4">
                     <button
                       onClick={savePersonal}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      className="px-8 py-3.5 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2 active:scale-95"
                     >
-                      <CheckCircle className="w-4 h-4" />
-                      Save Changes
+                      <CheckCircle className="w-5 h-5" />
+                      Commit Changes
                     </button>
                     <button
                       onClick={() => {
                         setPersonalEdit(false);
                         fetchProfile();
                       }}
-                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="px-8 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
                     >
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Full Name</p>
-                      <p className="text-lg font-semibold text-gray-900">{profile.full_name || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">PAN Number</p>
-                      <p className="text-lg font-semibold text-gray-900">{profile.pan_number || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Date of Birth</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {profile.date_of_birth
-                          ? new Date(profile.date_of_birth).toLocaleDateString("en-IN")
-                          : "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Gender</p>
-                      <p className="text-lg font-semibold text-gray-900 capitalize">
-                        {profile.gender || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">KYC Status</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                  <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-md group">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Legal Name</p>
+                    <p className="text-xl font-bold text-slate-800 group-hover:text-emerald-700 transition-colors uppercase">{profile.full_name || "N/A"}</p>
+                  </div>
+                  <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-md group">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">PAN Account Number</p>
+                    <p className="text-xl font-bold text-slate-800 group-hover:text-emerald-700 transition-colors tracking-widest">{profile.pan_number || "N/A"}</p>
+                  </div>
+                  <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-md group">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Date of Birth</p>
+                    <p className="text-xl font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">
+                      {profile.date_of_birth
+                        ? new Date(profile.date_of_birth).toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' })
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-md group">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Gender Identification</p>
+                    <p className="text-xl font-bold text-slate-800 group-hover:text-emerald-700 transition-colors capitalize">
+                      {profile.gender || "N/A"}
+                    </p>
+                  </div>
+                  <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-md group">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Verification Status</p>
+                    <div className="mt-1">
                       <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${getKYCStatusBadge(
+                        className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold border transition-all ${getKYCStatusBadge(
                           profile.kyc_status
                         )}`}
                       >
-                        {profile.kyc_status || "Not Started"}
+                        {profile.kyc_status?.toLowerCase() === 'verified' && <CheckCircle className="w-4 h-4" />}
+                        {profile.kyc_status?.replace('_', ' ').toUpperCase() || "NOT STARTED"}
                       </span>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Investor ID</p>
-                      <p className="text-lg font-semibold text-gray-900">{profile.investor_id || "N/A"}</p>
-                    </div>
+                  </div>
+                  <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-md group">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Internal Investor ID</p>
+                    <p className="text-lg font-mono font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-lg inline-block">{profile.investor_id || "N/A"}</p>
                   </div>
                 </div>
               )}
@@ -668,40 +695,44 @@ export default function Profile() {
 
           {/* Contact Info Tab */}
           {activeTab === "contact" && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Contact Information</h2>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-100">
+                <div>
+                  <h2 className="text-3xl font-extrabold text-slate-800">Contact Details</h2>
+                  <p className="text-slate-500 mt-1 font-medium">Keep your reachability information up to date</p>
+                </div>
                 {!contactEdit && (
                   <button
                     onClick={() => setContactEdit(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-2.5 px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
                   >
                     <Edit2 className="w-4 h-4" />
-                    Edit
+                    Update Contact
                   </button>
                 )}
               </div>
 
               {contactEdit ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email <span className="text-red-500">*</span>
+                <div className="space-y-8 max-w-4xl">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">
+                        Primary Email <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="email"
                         name="email"
                         value={profile.email}
                         onChange={handleFieldChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                        placeholder="email@example.com"
                         required
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Mobile Number <span className="text-red-500">*</span>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">
+                        Mobile Number <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="tel"
@@ -709,116 +740,114 @@ export default function Profile() {
                         value={profile.mobile_number}
                         onChange={handleFieldChange}
                         maxLength="10"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                        placeholder="9999999999"
                         required
                       />
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Address Line 1
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">
+                        Residence Address Line 1
                       </label>
                       <input
                         type="text"
                         name="address_line1"
                         value={profile.address_line1}
                         onChange={handleFieldChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                        placeholder="House No., Street Name"
                       />
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Address Line 2
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">
+                        Residence Address Line 2
                       </label>
                       <input
                         type="text"
                         name="address_line2"
                         value={profile.address_line2}
                         onChange={handleFieldChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                        placeholder="Locality, Landmark"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">City / Town</label>
                       <input
                         type="text"
                         name="city"
                         value={profile.city}
                         onChange={handleFieldChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                        placeholder="City Name"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">State / Province</label>
                       <input
                         type="text"
                         name="state"
                         value={profile.state}
                         onChange={handleFieldChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                        placeholder="State Name"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Pincode</label>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-slate-700 ml-1">Postal Code (Pincode)</label>
                       <input
                         type="text"
                         name="pincode"
                         value={profile.pincode}
                         onChange={handleFieldChange}
                         maxLength="6"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                        placeholder="600001"
                       />
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 pt-4 border-t">
+                  <div className="flex items-center gap-4 pt-8 mt-4">
                     <button
                       onClick={saveContact}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      className="px-8 py-3.5 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2 active:scale-95"
                     >
-                      <CheckCircle className="w-4 h-4" />
-                      Save Changes
+                      <CheckCircle className="w-5 h-5" />
+                      Save Address
                     </button>
                     <button
                       onClick={() => {
                         setContactEdit(false);
                         fetchProfile();
                       }}
-                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="px-8 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
                     >
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Email</p>
-                      <p className="text-lg font-semibold text-gray-900">{profile.email || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Mobile Number</p>
-                      <p className="text-lg font-semibold text-gray-900">{profile.mobile_number || "N/A"}</p>
-                    </div>
-                    <div className="md:col-span-2">
-                      <p className="text-sm text-gray-600 mb-1">Address</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {[
-                          profile.address_line1,
-                          profile.address_line2,
-                          profile.city,
-                          profile.state,
-                          profile.pincode,
-                        ]
-                          .filter(Boolean)
-                          .join(", ") || "N/A"}
-                      </p>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                  <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-md group">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Email Address</p>
+                    <p className="text-lg font-bold text-slate-800 group-hover:text-emerald-700 transition-colors break-all">{profile.email || "N/A"}</p>
+                  </div>
+                  <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-md group">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Mobile Phone</p>
+                    <p className="text-xl font-bold text-slate-800 group-hover:text-emerald-700 transition-colors tracking-widest">{profile.mobile_number || "N/A"}</p>
+                  </div>
+                  <div className="md:col-span-2 lg:col-span-3 p-6 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-md group">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Residential Address</p>
+                    <p className="text-lg font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-relaxed">
+                      {[profile.address_line1, profile.address_line2, profile.city, profile.state, profile.pincode]
+                        .filter(Boolean)
+                        .join(", ") || "No address provided."}
+                    </p>
                   </div>
                 </div>
               )}
@@ -827,134 +856,197 @@ export default function Profile() {
 
           {/* Bank Accounts Tab */}
           {activeTab === "banks" && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Bank Accounts</h2>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-100">
+                <div>
+                  <h2 className="text-3xl font-extrabold text-slate-800">Financial Mandates</h2>
+                  <p className="text-slate-500 mt-1 font-medium">Link and verify your registered bank accounts</p>
+                </div>
                 <button
                   onClick={addBank}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="flex items-center gap-2.5 px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
                 >
                   <Plus className="w-4 h-4" />
-                  Add Bank Account
+                  Link New Bank
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {profile.bank_accounts.length > 0 ? (
                   profile.bank_accounts.map((bank, index) =>
                     bankEditIndex === index ? (
-                      <div key={index} className="border-2 border-blue-200 rounded-xl p-6 bg-blue-50">
-                        <h3 className="text-lg font-semibold mb-4 text-gray-800">
-                          {bank.id ? "Edit Bank Account" : "Add Bank Account"}
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Account Number <span className="text-red-500">*</span>
+                      <div key={index} className="bg-slate-50 rounded-3xl p-8 border-2 border-emerald-200 shadow-inner animate-pulse-subtle">
+                        <div className="flex items-center gap-3 mb-8">
+                          <div className="p-2 bg-emerald-100 rounded-lg">
+                            <CreditCard className="w-5 h-5 text-emerald-600" />
+                          </div>
+                          <h3 className="text-xl font-bold text-slate-800">
+                            {bank.id ? "Edit Banking Details" : "New Account Configuration"}
+                          </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Account Number <span className="text-rose-500">*</span>
                             </label>
                             <input
                               type="text"
                               name="account_number"
                               value={bank.account_number || ""}
                               onChange={(e) => handleFieldChange(e, "bank", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="000000000000"
                               required
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Account Holder Name <span className="text-red-500">*</span>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Holder Name as per Bank <span className="text-rose-500">*</span>
                             </label>
                             <input
                               type="text"
                               name="account_holder_name"
                               value={bank.account_holder_name || ""}
                               onChange={(e) => handleFieldChange(e, "bank", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="Full Name"
                               required
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Bank Name <span className="text-red-500">*</span>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Banking Institution <span className="text-rose-500">*</span>
                             </label>
                             <input
                               type="text"
                               name="bank_name"
                               value={bank.bank_name || ""}
                               onChange={(e) => handleFieldChange(e, "bank", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="e.g. HDFC Bank"
                               required
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              IFSC Code <span className="text-red-500">*</span>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              IFSC Routing Code <span className="text-rose-500">*</span>
                             </label>
                             <input
                               type="text"
                               name="ifsc_code"
                               value={bank.ifsc_code || bank.ifsc || ""}
                               onChange={(e) => handleFieldChange(e, "bank", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 uppercase"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium uppercase tracking-widest"
+                              placeholder="HDFC0000001"
                               maxLength="11"
                               required
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Branch Name
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Branch Designation
                             </label>
                             <input
                               type="text"
                               name="branch_name"
                               value={bank.branch_name || bank.branch || ""}
                               onChange={(e) => handleFieldChange(e, "bank", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="Branch Name"
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Account Type
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Account Classification
                             </label>
                             <select
                               name="account_type"
                               value={bank.account_type || "savings"}
                               onChange={(e) => handleFieldChange(e, "bank", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700"
                             >
-                              <option value="savings">Savings</option>
-                              <option value="current">Current</option>
-                              <option value="nri_nro">NRI NRO</option>
-                              <option value="nri_nre">NRI NRE</option>
+                              <option value="savings">Savings Account</option>
+                              <option value="current">Current Account</option>
+                              <option value="nri_nro">NRI NRO Account</option>
+                              <option value="nri_nre">NRI NRE Account</option>
                             </select>
                           </div>
+                          <div className="md:col-span-2 space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Bank Address
+                            </label>
+                            <input
+                              type="text"
+                              name="bank_address"
+                              value={bank.bank_address || ""}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="Street, Area"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">City</label>
+                            <input
+                              type="text"
+                              name="city"
+                              value={bank.city || ""}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="City"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">State</label>
+                            <input
+                              type="text"
+                              name="state"
+                              value={bank.state || ""}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="State"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">Pincode</label>
+                            <input
+                              type="text"
+                              name="pincode"
+                              value={bank.pincode || ""}
+                              onChange={(e) => handleFieldChange(e, "bank", index)}
+                              maxLength="6"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="600001"
+                            />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3 mt-6 pt-4 border-t">
+
+                        <div className="flex items-center gap-4 mt-10 pt-8 border-t border-slate-200">
                           <button
                             onClick={() => saveBank(index)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            className="px-8 py-3.5 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2 active:scale-95"
                           >
-                            Save
+                            <CheckCircle className="w-5 h-5" />
+                            Secure Account
                           </button>
                           <button
                             onClick={() => {
                               setBankEditIndex(-1);
                               fetchProfile();
                             }}
-                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="px-8 py-3.5 bg-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-300 transition-all active:scale-95"
                           >
-                            Cancel
+                            Discard
                           </button>
                           {bank.id && (
                             <button
                               onClick={() =>
                                 setShowDeleteConfirm({ type: "bank", id: bank.id, index })
                               }
-                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 ml-auto"
+                              className="px-6 py-3.5 border-2 border-rose-100 text-rose-600 font-bold rounded-2xl hover:bg-rose-50 hover:border-rose-200 transition-all flex items-center gap-2 ml-auto active:scale-95"
                             >
                               <Trash2 className="w-4 h-4" />
-                              Delete
+                              Remove Link
                             </button>
                           )}
                         </div>
@@ -962,85 +1054,103 @@ export default function Profile() {
                     ) : (
                       <div
                         key={index}
-                        className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                        className="group bg-white rounded-3xl p-8 border border-slate-100 hover:border-emerald-200 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <div className="p-3 bg-blue-100 rounded-lg">
-                                <CreditCard className="w-6 h-6 text-blue-600" />
+                            <div className="flex flex-wrap items-center gap-4 mb-6">
+                              <div className="p-4 bg-emerald-50 rounded-2xl group-hover:bg-emerald-100 transition-colors">
+                                <CreditCard className="w-8 h-8 text-emerald-600" />
                               </div>
                               <div>
-                                <h3 className="text-lg font-semibold text-gray-900">
-                                  {bank.bank_name || "Bank Account"}
+                                <h3 className="text-2xl font-extrabold text-slate-800 flex items-center gap-3">
+                                  {bank.bank_name || "Unspecified Bank"}
+                                  {bank.is_primary && (
+                                    <span className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-xs font-black uppercase tracking-tighter shadow-sm shadow-emerald-200">
+                                      Primary Account
+                                    </span>
+                                  )}
                                 </h3>
-                                <p className="text-sm text-gray-600">
-                                  {bank.account_holder_name || "N/A"}
+                                <p className="text-slate-500 font-bold tracking-tight">
+                                  {bank.account_holder_name || "Verification Pending"}
                                 </p>
                               </div>
-                              {bank.is_primary && (
-                                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
-                                  Primary
-                                </span>
-                              )}
-                              {bank.is_verified && (
-                                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold flex items-center gap-1">
-                                  <CheckCircle className="w-3 h-3" />
-                                  Verified
-                                </span>
-                              )}
+                              <div className="lg:ml-auto">
+                                {bank.is_verified ? (
+                                  <span className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-sm font-black shadow-sm">
+                                    <CheckCircle className="w-4 h-4" />
+                                    VERIFIED
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1.5 px-4 py-2 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl text-sm font-black shadow-sm">
+                                    <AlertCircle className="w-4 h-4" />
+                                    PENDING VERIFICATION
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 px-1">
                               <div>
-                                <p className="text-gray-600">Account Number</p>
-                                <p className="font-semibold text-gray-900">
-                                  ****{bank.account_number?.slice(-4) || "XXXX"}
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Number</p>
+                                <p className="text-base font-mono font-black text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg inline-block">
+                                  •••• •••• {bank.account_number?.slice(-4) || "XXXX"}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-gray-600">IFSC Code</p>
-                                <p className="font-semibold text-gray-900">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">IFSC Routing</p>
+                                <p className="text-base font-bold text-slate-700 tracking-wider">
                                   {bank.ifsc_code || bank.ifsc || "N/A"}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-gray-600">Branch</p>
-                                <p className="font-semibold text-gray-900">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Branch</p>
+                                <p className="text-base font-bold text-slate-700">
                                   {bank.branch_name || bank.branch || "N/A"}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-gray-600">Account Type</p>
-                                <p className="font-semibold text-gray-900 capitalize">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Category</p>
+                                <p className="text-base font-bold text-emerald-700 capitalize">
                                   {bank.account_type || "Savings"}
                                 </p>
                               </div>
                             </div>
+
+                            {(bank.bank_address || bank.city) && (
+                              <div className="mt-4 px-1">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bank Location</p>
+                                <p className="text-sm font-medium text-slate-600">
+                                  {[bank.bank_address, bank.city, bank.state, bank.pincode].filter(Boolean).join(", ")}
+                                </p>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex flex-col gap-2 ml-4">
+
+                          <div className="flex flex-row lg:flex-col items-center justify-end gap-3 min-w-[160px]">
                             {!bank.is_primary && (
                               <button
                                 onClick={() => setPrimaryBank(bank.id)}
-                                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                                className="flex-1 lg:w-full px-5 py-3 text-sm font-bold bg-slate-100 text-slate-600 rounded-xl hover:bg-emerald-50 hover:text-emerald-700 transition-all active:scale-95"
                               >
-                                Set Primary
+                                Make Primary
                               </button>
                             )}
                             <button
                               onClick={() => setBankEditIndex(index)}
-                              className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
+                              className="flex-1 lg:w-full px-5 py-3 text-sm font-bold bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-all flex items-center justify-center gap-2 active:scale-95"
                             >
                               <Edit2 className="w-4 h-4" />
-                              Edit
+                              Modify
                             </button>
                             <button
                               onClick={() =>
                                 setShowDeleteConfirm({ type: "bank", id: bank.id, index })
                               }
-                              className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
+                              className="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-all active:scale-95 border border-transparent hover:border-rose-100"
+                              title="Delete Account"
                             >
-                              <Trash2 className="w-4 h-4" />
-                              Delete
+                              <Trash2 className="w-5 h-5" />
                             </button>
                           </div>
                         </div>
@@ -1048,15 +1158,18 @@ export default function Profile() {
                     )
                   )
                 ) : (
-                  <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
-                    <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">No bank accounts added yet</p>
+                  <div className="text-center py-24 bg-slate-50/50 border-4 border-dashed border-slate-100 rounded-[2.5rem]">
+                    <div className="w-24 h-24 bg-white rounded-3xl shadow-xl shadow-slate-200/50 flex items-center justify-center mx-auto mb-8">
+                      <CreditCard className="w-12 h-12 text-slate-300" />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-800 mb-2">No Registered Banks</h3>
+                    <p className="text-slate-500 font-medium mb-10 max-w-xs mx-auto">Please add a bank account to enable seamless fund transfers and redemptions.</p>
                     <button
                       onClick={addBank}
-                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 mx-auto"
+                      className="px-10 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 flex items-center gap-3 mx-auto active:scale-95"
                     >
-                      <Plus className="w-4 h-4" />
-                      Add Bank Account
+                      <Plus className="w-6 h-6" />
+                      Add Account Now
                     </button>
                   </div>
                 )}
@@ -1066,49 +1179,59 @@ export default function Profile() {
 
           {/* Nominees Tab */}
           {activeTab === "nominees" && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Nominees</h2>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-100">
+                <div>
+                  <h2 className="text-3xl font-extrabold text-slate-800">Nomination Rights</h2>
+                  <p className="text-slate-500 mt-1 font-medium">Designate beneficiaries for your investment portfolio</p>
+                </div>
                 <button
                   onClick={addNominee}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="flex items-center gap-2.5 px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
                 >
                   <Plus className="w-4 h-4" />
                   Add Nominee
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {profile.nominees.length > 0 ? (
                   profile.nominees.map((nominee, index) =>
                     nomineeEditIndex === index ? (
-                      <div key={index} className="border-2 border-blue-200 rounded-xl p-6 bg-blue-50">
-                        <h3 className="text-lg font-semibold mb-4 text-gray-800">
-                          {nominee.id ? "Edit Nominee" : "Add Nominee"}
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Nominee Name <span className="text-red-500">*</span>
+                      <div key={index} className="bg-slate-50 rounded-3xl p-8 border-2 border-emerald-200 shadow-inner animate-pulse-subtle">
+                        <div className="flex items-center gap-3 mb-8">
+                          <div className="p-2 bg-emerald-100 rounded-lg">
+                            <Users className="w-5 h-5 text-emerald-600" />
+                          </div>
+                          <h3 className="text-xl font-bold text-slate-800">
+                            {nominee.id ? "Update Nominee Profile" : "New Nominee Declaration"}
+                          </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Nominee Legal Name <span className="text-rose-500">*</span>
                             </label>
                             <input
                               type="text"
                               name="nominee_name"
                               value={nominee.nominee_name || nominee.name || ""}
                               onChange={(e) => handleFieldChange(e, "nominee", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="Full Name"
                               required
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Relationship <span className="text-red-500">*</span>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Familial Relationship <span className="text-rose-500">*</span>
                             </label>
                             <select
                               name="relationship"
                               value={nominee.relationship || nominee.nominee_relationship || ""}
                               onChange={(e) => handleFieldChange(e, "nominee", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700"
                               required
                             >
                               <option value="">-- Select Relationship --</option>
@@ -1119,85 +1242,179 @@ export default function Profile() {
                               ))}
                             </select>
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Date of Birth <span className="text-red-500">*</span>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Date of Birth <span className="text-rose-500">*</span>
                             </label>
                             <input
                               type="date"
                               name="date_of_birth"
                               value={nominee.date_of_birth || ""}
                               onChange={(e) => handleFieldChange(e, "nominee", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
                               required
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Allocation Percentage <span className="text-red-500">*</span>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Asset Allocation (%) <span className="text-rose-500">*</span>
                             </label>
-                            <input
-                              type="number"
-                              name="allocation_percentage"
-                              value={nominee.allocation_percentage || nominee.pct || 100}
-                              onChange={(e) => handleFieldChange(e, "nominee", index)}
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              required
-                            />
+                            <div className="relative">
+                              <input
+                                type="number"
+                                name="allocation_percentage"
+                                value={nominee.allocation_percentage || nominee.pct || 100}
+                                onChange={(e) => handleFieldChange(e, "nominee", index)}
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-black text-emerald-700 pr-12"
+                                required
+                              />
+                              <span className="absolute right-5 top-1/2 -translate-y-1/2 font-black text-slate-400">%</span>
+                            </div>
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Mobile Number
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Contact Mobile
                             </label>
                             <input
                               type="tel"
                               name="mobile_number"
                               value={nominee.mobile_number || ""}
                               onChange={(e) => handleFieldChange(e, "nominee", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="9999999999"
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Email
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Email Address
                             </label>
                             <input
                               type="email"
                               name="email"
                               value={nominee.email || ""}
                               onChange={(e) => handleFieldChange(e, "nominee", index)}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="nominee@example.com"
                             />
                           </div>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Nominee PAN
+                            </label>
+                            <input
+                              type="text"
+                              name="nominee_pan"
+                              value={nominee.nominee_pan || ""}
+                              onChange={(e) => handleFieldChange(e, "nominee", index)}
+                              maxLength="10"
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium uppercase tracking-widest"
+                              placeholder="ABCDE1234F"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Nominee Gender
+                            </label>
+                            <select
+                              name="gender"
+                              value={nominee.gender || ""}
+                              onChange={(e) => handleFieldChange(e, "nominee", index)}
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700"
+                            >
+                              <option value="">-- Select Gender --</option>
+                              <option value="male">Male</option>
+                              <option value="female">Female</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
+                          <div className="md:col-span-2 space-y-2">
+                            <label className="block text-sm font-bold text-slate-700 ml-1">
+                              Nominee Address
+                            </label>
+                            <input
+                              type="text"
+                              name="address"
+                              value={nominee.address || ""}
+                              onChange={(e) => handleFieldChange(e, "nominee", index)}
+                              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                              placeholder="Full Address"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2 py-4">
+                            <div className="h-px bg-slate-200 w-full mb-8"></div>
+                            <h4 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                              Guardian Details (For Minor Nominees)
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              <div className="space-y-2">
+                                <label className="block text-sm font-bold text-slate-700 ml-1">Guardian Name</label>
+                                <input
+                                  type="text"
+                                  name="guardian_name"
+                                  value={nominee.guardian_name || ""}
+                                  onChange={(e) => handleFieldChange(e, "nominee", index)}
+                                  className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                                  placeholder="Guardian's Name"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="block text-sm font-bold text-slate-700 ml-1">Guardian Relation</label>
+                                <input
+                                  type="text"
+                                  name="guardian_relation"
+                                  value={nominee.guardian_relation || nominee.guardian_relationship || ""}
+                                  onChange={(e) => handleFieldChange(e, "nominee", index)}
+                                  className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium"
+                                  placeholder="Father/Mother/Other"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="block text-sm font-bold text-slate-700 ml-1">Guardian PAN</label>
+                                <input
+                                  type="text"
+                                  name="guardian_pan"
+                                  value={nominee.guardian_pan || ""}
+                                  onChange={(e) => handleFieldChange(e, "nominee", index)}
+                                  maxLength="10"
+                                  className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium uppercase tracking-widest"
+                                  placeholder="ABCDE1234F"
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3 mt-6 pt-4 border-t">
+
+                        <div className="flex items-center gap-4 mt-10 pt-8 border-t border-slate-200">
                           <button
                             onClick={() => saveNominee(index)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            className="px-8 py-3.5 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2 active:scale-95"
                           >
-                            Save
+                            <CheckCircle className="w-5 h-5" />
+                            Secure Nominee
                           </button>
                           <button
                             onClick={() => {
                               setNomineeEditIndex(-1);
                               fetchProfile();
                             }}
-                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="px-8 py-3.5 bg-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-300 transition-all active:scale-95"
                           >
-                            Cancel
+                            Discard
                           </button>
                           {nominee.id && (
                             <button
                               onClick={() =>
                                 setShowDeleteConfirm({ type: "nominee", id: nominee.id, index })
                               }
-                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 ml-auto"
+                              className="px-6 py-3.5 border-2 border-rose-100 text-rose-600 font-bold rounded-2xl hover:bg-rose-50 hover:border-rose-200 transition-all flex items-center gap-2 ml-auto active:scale-95"
                             >
                               <Trash2 className="w-4 h-4" />
-                              Delete
+                              Remove
                             </button>
                           )}
                         </div>
@@ -1205,68 +1422,93 @@ export default function Profile() {
                     ) : (
                       <div
                         key={index}
-                        className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                        className="group bg-white rounded-3xl p-8 border border-slate-100 hover:border-emerald-200 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <div className="p-3 bg-purple-100 rounded-lg">
-                                <Users className="w-6 h-6 text-purple-600" />
+                            <div className="flex flex-wrap items-center gap-4 mb-6">
+                              <div className="p-4 bg-purple-50 rounded-2xl group-hover:bg-purple-100 transition-colors">
+                                <Users className="w-8 h-8 text-purple-600" />
                               </div>
                               <div>
-                                <h3 className="text-lg font-semibold text-gray-900">
-                                  {nominee.nominee_name || nominee.name || "Nominee"}
+                                <h3 className="text-2xl font-extrabold text-slate-800 flex items-center gap-3">
+                                  {nominee.nominee_name || nominee.name || "Designated Nominee"}
                                 </h3>
-                                <p className="text-sm text-gray-600">
-                                  {nominee.relationship || nominee.nominee_relationship || "N/A"}
+                                <p className="text-slate-500 font-bold tracking-tight">
+                                  {nominee.relationship || nominee.nominee_relationship || "Family Member"}
                                 </p>
                               </div>
-                              {nominee.is_verified && (
-                                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold flex items-center gap-1">
-                                  <CheckCircle className="w-3 h-3" />
-                                  Verified
+                              <div className="lg:ml-auto">
+                                <span className="flex flex-col items-end">
+                                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Benefit Allocation</p>
+                                  <p className="text-2xl font-black text-emerald-600 font-mono">
+                                    {nominee.allocation_percentage || nominee.pct || 0}%
+                                  </p>
                                 </span>
-                              )}
+                              </div>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 px-1">
                               <div>
-                                <p className="text-gray-600">Date of Birth</p>
-                                <p className="font-semibold text-gray-900">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Date of Birth</p>
+                                <p className="text-base font-bold text-slate-700">
                                   {nominee.date_of_birth
-                                    ? new Date(nominee.date_of_birth).toLocaleDateString("en-IN")
+                                    ? new Date(nominee.date_of_birth).toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' })
                                     : "N/A"}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-gray-600">Allocation</p>
-                                <p className="font-semibold text-gray-900">
-                                  {nominee.allocation_percentage || nominee.pct || 0}%
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">PAN & Gender</p>
+                                <p className="text-sm font-bold text-slate-700 uppercase">
+                                  {nominee.nominee_pan || "No PAN"} | {nominee.gender || "NA"}
                                 </p>
                               </div>
-                              <div>
-                                <p className="text-gray-600">Mobile</p>
-                                <p className="font-semibold text-gray-900">
-                                  {nominee.mobile_number || "N/A"}
+                              <div className="md:col-span-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Contact Details</p>
+                                <p className="text-sm font-bold text-slate-700 truncate">
+                                  {nominee.mobile_number || nominee.email ? (
+                                    <>
+                                      {nominee.mobile_number} {nominee.email && `| ${nominee.email}`}
+                                    </>
+                                  ) : "No contact verified"}
                                 </p>
                               </div>
                             </div>
+
+                            {nominee.address && (
+                              <div className="mt-4 px-1">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Residential Address</p>
+                                <p className="text-sm font-medium text-slate-600 truncate">{nominee.address}</p>
+                              </div>
+                            )}
+
+                            {nominee.guardian_name && (
+                              <div className="mt-4 px-4 py-3 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Legal Guardian</p>
+                                <p className="text-sm font-bold text-slate-800">
+                                  {nominee.guardian_name} ({nominee.guardian_relation || nominee.guardian_relationship || "Guardian"})
+                                  {nominee.guardian_pan && <span className="ml-2 text-slate-500 font-mono text-xs">| {nominee.guardian_pan}</span>}
+                                </p>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex flex-col gap-2 ml-4">
+
+                          <div className="flex flex-row lg:flex-col items-center justify-end gap-3 min-w-[160px]">
                             <button
                               onClick={() => setNomineeEditIndex(index)}
-                              className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
+                              className="flex-1 lg:w-full px-5 py-3 text-sm font-bold bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-all flex items-center justify-center gap-2 active:scale-95"
                             >
                               <Edit2 className="w-4 h-4" />
-                              Edit
+                              Modify
                             </button>
                             <button
                               onClick={() =>
                                 setShowDeleteConfirm({ type: "nominee", id: nominee.id, index })
                               }
-                              className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
+                              className="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-all active:scale-95 border border-transparent hover:border-rose-100"
+                              title="Remove Nominee"
                             >
-                              <Trash2 className="w-4 h-4" />
-                              Delete
+                              <Trash2 className="w-5 h-5" />
                             </button>
                           </div>
                         </div>
@@ -1274,15 +1516,18 @@ export default function Profile() {
                     )
                   )
                 ) : (
-                  <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
-                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">No nominees added yet</p>
+                  <div className="text-center py-24 bg-slate-50/50 border-4 border-dashed border-slate-100 rounded-[2.5rem]">
+                    <div className="w-24 h-24 bg-white rounded-3xl shadow-xl shadow-slate-200/50 flex items-center justify-center mx-auto mb-8">
+                      <Users className="w-12 h-12 text-slate-300" />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-800 mb-2">No Nominees Declared</h3>
+                    <p className="text-slate-500 font-medium mb-10 max-w-xs mx-auto">Nomination is critical for the smooth transfer of assets to your loved ones.</p>
                     <button
                       onClick={addNominee}
-                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 mx-auto"
+                      className="px-10 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 flex items-center gap-3 mx-auto active:scale-95"
                     >
-                      <Plus className="w-4 h-4" />
-                      Add Nominee
+                      <Plus className="w-6 h-6" />
+                      Add Nominee Now
                     </button>
                   </div>
                 )}
@@ -1292,10 +1537,13 @@ export default function Profile() {
 
           {/* Documents Tab */}
           {activeTab === "documents" && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Documents</h2>
-                <label className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors cursor-pointer">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-100">
+                <div>
+                  <h2 className="text-3xl font-extrabold text-slate-800">Secure Vault</h2>
+                  <p className="text-slate-500 mt-1 font-medium">Verify and manage your essential legal documentation</p>
+                </div>
+                <label className="flex items-center gap-2.5 px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 cursor-pointer active:scale-95">
                   <Upload className="w-4 h-4" />
                   Upload Document
                   <input
@@ -1304,7 +1552,7 @@ export default function Profile() {
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      const docType = prompt("Enter document type (e.g., PAN, Aadhar, KYC):");
+                      const docType = prompt("Enter document type (e.g., PAN, Aadhar, KYC, Canceled Cheque):");
                       if (file && docType) {
                         uploadDocument(file, docType);
                       }
@@ -1314,86 +1562,91 @@ export default function Profile() {
                 </label>
               </div>
 
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {profile.documents.length > 0 ? (
                   profile.documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                      className="group bg-white rounded-3xl p-6 border border-slate-100 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-300"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-4 flex-1">
-                          <div className="p-3 bg-blue-100 rounded-lg">
-                            <FileText className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                              {doc.document_name || doc.name || "Document"}
-                            </h3>
-                            <p className="text-sm text-gray-600 mb-2">
-                              Type: {doc.document_type || "N/A"} | Size:{" "}
-                              {doc.file_size ? `${(doc.file_size / 1024).toFixed(2)} KB` : "N/A"}
-                            </p>
-                            <div className="flex items-center gap-4 text-sm">
-                              <span
-                                className={`px-3 py-1 rounded-full font-semibold border ${
-                                  doc.status === "verified"
-                                    ? "bg-green-100 text-green-800 border-green-200"
-                                    : doc.status === "rejected"
-                                    ? "bg-red-100 text-red-800 border-red-200"
-                                    : "bg-yellow-100 text-yellow-800 border-yellow-200"
+                      <div className="flex items-start gap-4">
+                        <div className="p-4 bg-slate-50 rounded-2xl group-hover:bg-emerald-50 transition-colors">
+                          <FileText className="w-8 h-8 text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-extrabold text-slate-800 mb-1 truncate">
+                            {doc.document_name || doc.name || "Legal Document"}
+                          </h3>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
+                            {doc.document_type || "General Type"} • {(doc.file_size / 1024).toFixed(1)} KB
+                          </p>
+
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter border ${doc.status === "verified"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                : doc.status === "rejected"
+                                  ? "bg-rose-50 text-rose-700 border-rose-100"
+                                  : "bg-amber-50 text-amber-700 border-amber-100"
                                 }`}
-                              >
-                                {doc.status || "Pending"}
+                            >
+                              {doc.status || "In Review"}
+                            </span>
+                            {doc.uploaded_on && (
+                              <span className="text-[10px] font-bold text-slate-400">
+                                {new Date(doc.uploaded_on).toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' })}
                               </span>
-                              {doc.uploaded_on && (
-                                <span className="text-gray-600">
-                                  Uploaded: {new Date(doc.uploaded_on).toLocaleDateString("en-IN")}
-                                </span>
-                              )}
-                            </div>
-                            {doc.rejection_reason && (
-                              <p className="text-sm text-red-600 mt-2">
-                                Reason: {doc.rejection_reason}
-                              </p>
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-2 ml-4">
+
+                        <div className="flex flex-col gap-2">
                           <button
                             onClick={() => downloadDocument(doc.id)}
-                            className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
+                            className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all active:scale-95"
+                            title="Download"
                           >
-                            <Download className="w-4 h-4" />
-                            Download
+                            <Download className="w-5 h-5" />
                           </button>
                           <button
                             onClick={() =>
                               setShowDeleteConfirm({ type: "document", id: doc.id, index: null })
                             }
-                            className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
+                            className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all active:scale-95"
+                            title="Remove"
                           >
-                            <Trash2 className="w-4 h-4" />
-                            Delete
+                            <Trash2 className="w-5 h-5" />
                           </button>
                         </div>
                       </div>
+
+                      {doc.rejection_reason && (
+                        <div className="mt-4 p-3 bg-rose-50 rounded-xl border border-rose-100">
+                          <p className="text-xs font-bold text-rose-700 flex items-center gap-2">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            {doc.rejection_reason}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
-                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">No documents uploaded yet</p>
-                    <label className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors cursor-pointer">
-                      <Upload className="w-4 h-4" />
-                      Upload Document
+                  <div className="md:col-span-2 text-center py-20 bg-slate-50/50 border-4 border-dashed border-slate-100 rounded-[2.5rem]">
+                    <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center mx-auto mb-6">
+                      <FileText className="w-10 h-10 text-slate-300" />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-800 mb-2">No Documents Archived</h3>
+                    <p className="text-slate-500 font-medium mb-8 max-w-xs mx-auto">Digitize your investment journey by uploading identity and address proofs.</p>
+                    <label className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 cursor-pointer active:scale-95">
+                      <Upload className="w-5 h-5" />
+                      Upload First File
                       <input
                         type="file"
                         className="hidden"
                         accept=".pdf,.jpg,.jpeg,.png"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          const docType = prompt("Enter document type (e.g., PAN, Aadhar, KYC):");
+                          const docType = prompt("Enter document type:");
                           if (file && docType) {
                             uploadDocument(file, docType);
                           }
@@ -1411,26 +1664,24 @@ export default function Profile() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm.type && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="p-3 bg-red-100 rounded-lg">
-                <AlertCircle className="w-6 h-6 text-red-600" />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[100] p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-10 border border-slate-100 animate-in zoom-in-95 duration-300">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-10 h-10 text-rose-500" />
               </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Confirm Deletion</h3>
-                <p className="text-gray-600">
-                  Are you sure you want to delete this {showDeleteConfirm.type}? This action cannot
-                  be undone.
-                </p>
-              </div>
+              <h3 className="text-2xl font-black text-slate-800 mb-3">Irreversible Action</h3>
+              <p className="text-slate-500 font-medium leading-relaxed">
+                You are about to permanently remove this <span className="text-slate-800 font-bold">{showDeleteConfirm.type}</span> record. This action cannot be undone. Are you absolutely certain?
+              </p>
             </div>
-            <div className="flex justify-end gap-3">
+
+            <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => setShowDeleteConfirm({ type: null, id: null, index: null })}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-6 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
               >
-                Cancel
+                Refuse
               </button>
               <button
                 onClick={() => {
@@ -1442,10 +1693,10 @@ export default function Profile() {
                     deleteDocument(showDeleteConfirm.id);
                   }
                 }}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                className="px-6 py-4 bg-rose-600 text-white font-black rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-200 transition-all flex items-center justify-center gap-2 active:scale-95"
               >
-                <Trash2 className="w-4 h-4" />
-                Delete
+                <Trash2 className="w-5 h-5" />
+                Confirm
               </button>
             </div>
           </div>

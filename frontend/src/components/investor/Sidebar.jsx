@@ -60,27 +60,27 @@ const sections = [
       { to: "/profile/banks", label: "Bank Mandates", icon: CreditCard },
       { to: "/profile/nominees", label: "Nominee Management", icon: Users },
       { to: "/profile/security", label: "Security Settings", icon: Shield },
-      { to: "/profile/documents", label: "Document Manager", icon: FileArchive }, 
+      { to: "/profile/documents", label: "Document Manager", icon: FileArchive },
     ],
   },
   {
     title: "Services",
     items: [
-      { to: "/mandates", label: "Mandate Management", icon: Settings },
+      { to: "/mandates", label: "Mandate Management", icon: CreditCard },
       { to: "/service-requests", label: "Service Requests", icon: FileText },
       { to: "/notifications", label: "Notifications", icon: Bell },
       { to: "/complaints", label: "Investor Complaints", icon: Shield },
       { to: "/support", label: "Support", icon: HelpCircle },
-       { to: "/disclosures", label: "Regulatory Disclosures", icon: FileArchive }, 
-      
+      { to: "/disclosures", label: "Regulatory Disclosures", icon: FileArchive },
+
     ],
   },
-    {
-      title: "Clients",
-      items: [
-        { to: "/clients", label: "My Agents", icon: Users },
-      ],
-    },
+  {
+    title: "Clients",
+    items: [
+      { to: "/clients", label: "My Agents", icon: Users },
+    ],
+  },
 
 ];
 
@@ -130,13 +130,12 @@ export default function Sidebar({ className = "" }) {
                   >
                     {({ isActive }) => (
                       <>
-                        <Icon 
-                          size={20} 
-                          className={`transition-transform duration-200 ${
-                            isActive
+                        <Icon
+                          size={20}
+                          className={`transition-transform duration-200 ${isActive
                               ? "text-white"
                               : "text-gray-500 group-hover:text-gray-700"
-                          }`}
+                            }`}
                         />
                         <span className="text-sm font-medium flex-1">{label}</span>
                         {isActive && (

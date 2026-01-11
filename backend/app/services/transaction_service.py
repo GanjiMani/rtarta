@@ -21,6 +21,7 @@ from app.models.mandate import (
 )
 from app.models.unclaimed import UnclaimedAmount
 from app.core.config import settings
+from app.services.mandate_service import MandateService
 
 logger = logging.getLogger(__name__)
 
@@ -289,6 +290,17 @@ class TransactionService:
 
         # Get or create folio
         folio = self.get_or_create_folio(investor_id, actual_scheme_id)
+
+        # Validate Mandate
+        mandate_service = MandateService(self.db)
+        if not mandate_service.is_mandate_ready(bank_account_id, amount):
+            # Check if mandate exists but is inactive
+            status_info = mandate_service.get_mandate_status(investor_id, bank_account_id)
+            if status_info["status"] != "active":
+                raise ValueError(f"Bank mandate is not active (current status: {status_info['status']}). Please activate the mandate first.")
+            if amount > status_info["limit"]:
+                raise ValueError(f"SIP amount {amount} exceeds mandate limit of {status_info['limit']}")
+            raise ValueError("Bank mandate is not ready or expired.")
 
         # Convert frequency to enum (lowercase)
         freq_lower = frequency.lower() if isinstance(frequency, str) else str(frequency).lower()
@@ -640,6 +652,13 @@ class TransactionService:
 
         if sip_reg.status != SIPStatus.active:
             raise ValueError(f"SIP registration {registration_id} is not active")
+
+        # Check Mandate Status
+        mandate_service = MandateService(self.db)
+        if not mandate_service.is_mandate_ready(sip_reg.bank_account_id, sip_reg.amount):
+            logger.error(f"Mandate for SIP {registration_id} is not ready or active")
+            # In a production system, we might mark the installment as failed
+            raise ValueError(f"Bank mandate for SIP {registration_id} is not active or limit exceeded")
 
         # Get folio and scheme
         folio = self.db.query(Folio).filter(Folio.folio_number == sip_reg.folio_number).first()

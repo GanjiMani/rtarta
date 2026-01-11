@@ -337,13 +337,29 @@ export default function SIPSetup() {
                   >
                     <option value="">-- Select Bank Account --</option>
                     {bankAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
+                      <option key={account.id} value={account.id} disabled={account.mandate_status !== 'active'}>
                         {account.bank_name} - {account.account_number?.slice(-4)}
+                        {account.mandate_status === 'active' ? " (Mandate Active)" : " (No Active Mandate)"}
                       </option>
                     ))}
                   </select>
                   <Landmark className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
                 </div>
+                {selectedBank && selectedBank.mandate_status !== 'active' && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 animate-in slide-in-from-top-1 duration-300">
+                    <div className="flex items-center gap-2 text-amber-800 text-xs font-medium">
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                      <span>This bank requires an active mandate for SIPs.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/bank-mandates')}
+                      className="text-xs font-bold text-amber-900 underline hover:text-amber-700"
+                    >
+                      Setup Mandate
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}

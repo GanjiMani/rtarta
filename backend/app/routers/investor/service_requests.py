@@ -1,46 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
-from pydantic import BaseModel, Field
 from app.db.session import get_db
 from app.core.jwt import get_current_investor
 from app.models.user import User
+from app.services.service_request_service import ServiceRequestService
+from app.schemas.service_request import ServiceRequestCreate, ServiceRequestInDB, ServiceRequestListResponse, SingleServiceRequestResponse
 import logging
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["Service Requests"])
 
 
-class ServiceRequestCreate(BaseModel):
-    request_type: str = Field(..., min_length=1, max_length=100)
-    description: str = Field(..., min_length=1)
-
-
-@router.get("/")
+@router.get("/", response_model=ServiceRequestListResponse)
 async def get_service_requests(
-    current_user: User = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """Get all service requests for the investor"""
     try:
-        if not current_user.investor_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User does not have an associated investor profile"
-            )
-        
-        # Placeholder implementation - can be extended with actual service request model
-        requests = []
+        service = ServiceRequestService(db)
+        requests = service.get_investor_requests(current_investor.investor_id)
         
         return {
+            "status": "success",
             "message": "Service requests retrieved successfully",
             "data": requests
         }
-        
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Get service requests error: {e}", exc_info=True)
         raise HTTPException(
@@ -49,37 +36,22 @@ async def get_service_requests(
         )
 
 
-@router.post("/")
+@router.post("/", response_model=SingleServiceRequestResponse)
 async def create_service_request(
     request_data: ServiceRequestCreate,
-    current_user: User = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """Create a new service request"""
     try:
-        if not current_user.investor_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User does not have an associated investor profile"
-            )
-        
-        # Placeholder implementation - can be extended with actual service request model
-        service_request = {
-            "id": 1,
-            "request_type": request_data.request_type,
-            "description": request_data.description,
-            "status": "Pending",
-            "created_at": datetime.now().isoformat(),
-            "investor_id": current_user.investor_id
-        }
+        service = ServiceRequestService(db)
+        request = service.create_request(current_investor.investor_id, request_data)
         
         return {
+            "status": "success",
             "message": "Service request created successfully",
-            "data": service_request
+            "data": request
         }
-        
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Create service request error: {e}", exc_info=True)
         raise HTTPException(
@@ -88,10 +60,36 @@ async def create_service_request(
         )
 
 
-
-
-
-
-
-
-
+@router.delete("/{request_id}", response_model=SingleServiceRequestResponse)
+async def cancel_service_request(
+    request_id: int,
+    current_investor: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Cancel a pending service request"""
+    try:
+        service = ServiceRequestService(db)
+        request = service.cancel_request(request_id, current_investor.investor_id)
+        
+        if not request:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service request not found"
+            )
+            
+        return {
+            "status": "success",
+            "message": "Service request cancelled successfully",
+            "data": request
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Cancel service request error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to cancel service request"
+        )

@@ -231,10 +231,12 @@ async def update_profile(
         }
 
     except Exception as e:
-        logger.error(f"Update profile error: {e}")
+        import traceback
+        logger.error(f"Update profile error: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile"
+            detail=f"Failed to update profile: {str(e)}"
         )
 
 
@@ -263,10 +265,12 @@ async def change_password(
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Change password error: {e}")
+        import traceback
+        logger.error(f"Change password error: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to change password"
+            detail=f"Failed to change password: {str(e)}"
         )
 
 

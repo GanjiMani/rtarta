@@ -65,7 +65,7 @@ class InvestorInDB(InvestorBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class KYCUpdate(BaseModel):
@@ -116,6 +116,20 @@ class BankAccountUpdate(BaseModel):
     pincode: Optional[str] = Field(None, pattern=r'^\d{6}$')
 
 
+class MandateRegistration(BaseModel):
+    bank_account_id: int
+    mandate_type: str  # upi, ecs, net_banking, debit_mandate
+    mandate_amount_limit: Decimal = Field(..., ge=0)
+    mandate_expiry_date: Optional[date] = None
+    upi_id: Optional[str] = None
+
+
+class MandateUpdate(BaseModel):
+    mandate_amount_limit: Optional[Decimal] = Field(None, ge=0)
+    mandate_expiry_date: Optional[date] = None
+    status: Optional[str] = None  # active, inactive, suspended, cancelled
+
+
 class BankAccountInDB(BankAccountBase):
     id: int
     investor_id: str
@@ -128,7 +142,7 @@ class BankAccountInDB(BankAccountBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class NomineeBase(BaseModel):
@@ -183,7 +197,7 @@ class NomineeInDB(NomineeBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class InvestorProfileResponse(BaseModel):
@@ -195,4 +209,4 @@ class InvestorProfileResponse(BaseModel):
     current_value: Decimal
 
     class Config:
-        orm_mode = True
+        from_attributes = True

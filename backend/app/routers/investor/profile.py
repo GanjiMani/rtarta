@@ -50,13 +50,12 @@ async def get_investor_profile(
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Get profile error: {e}", exc_info=True)
         import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-        # Return a generic error message, not the internal error details
+        logger.error(f"Get profile error: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve profile. Please try again later."
+            detail=f"Failed to retrieve profile: {str(e)}"
         )
 
 
@@ -93,10 +92,12 @@ async def update_investor_profile(
         )
     except Exception as e:
         db.rollback()
-        logger.error(f"Update profile error: {e}", exc_info=True)
+        import traceback
+        logger.error(f"Update profile error: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile"
+            detail=f"Failed to update profile: {str(e)}"
         )
 
 
@@ -134,10 +135,12 @@ async def update_kyc(
         )
     except Exception as e:
         db.rollback()
-        logger.error(f"KYC update error: {e}", exc_info=True)
+        import traceback
+        logger.error(f"KYC update error: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update KYC information"
+            detail=f"Failed to update KYC information: {str(e)}"
         )
 
 
@@ -171,10 +174,12 @@ async def add_bank_account(
         )
     except Exception as e:
         db.rollback()
-        logger.error(f"Add bank account error: {e}", exc_info=True)
+        import traceback
+        logger.error(f"Add bank account error: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add bank account"
+            detail=f"Failed to add bank account: {str(e)}"
         )
 
 
@@ -324,10 +329,12 @@ async def add_nominee(
         )
     except Exception as e:
         db.rollback()
-        logger.error(f"Add nominee error: {e}", exc_info=True)
+        import traceback
+        logger.error(f"Add nominee error: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add nominee"
+            detail=f"Failed to add nominee: {str(e)}"
         )
 
 

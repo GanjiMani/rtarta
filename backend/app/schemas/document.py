@@ -29,7 +29,7 @@ class DocumentInDB(DocumentBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class DocumentResponse(BaseModel):
@@ -49,7 +49,7 @@ class DocumentResponse(BaseModel):
     updated_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 
