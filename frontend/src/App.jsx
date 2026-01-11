@@ -32,12 +32,13 @@ import MandateManagement from "./pages/investor/MandateManagement";
 import ServiceRequests from "./pages/investor/ServiceRequests";
 import Notifications from "./pages/investor/Notifications";
 import Support from "./pages/investor/Support";
-import AssetAllocationChart from "./pages/investor/AssetAllocationChart";
+import AssetAllocation from "./pages/investor/AssetAllocation";
 import InvestorComplaints from "./pages/investor/InvestorComplaints";
 import DocumentManager from "./pages/investor/DocumentManager";
 import RegulatoryDisclosure from "./pages/investor/RegulatoryDisclosure";
 import ClientList from "./pages/investor/ClientList";
 import ForgotPassword from './pages/investor/ForgotPassword';
+import VerifyOTP from './pages/investor/VerifyOTP';
 import ResetPassword from './pages/investor/ResetPassword';
 // Admin pages
 import AdminRegister from "./pages/admin/AdminRegister";
@@ -76,7 +77,7 @@ import AMCReconciliation from "./pages/amc/AMCReconciliation";
 import ProtectedRoute from "./services/ProtectedRoute";
 import InvestorProfile from "./pages/amc/InvestorProfile";
 import TransactionReports from "./pages/amc/TransactionReports";
-import DocumentManagerr from "./pages/amc/DocumentManagerr"; 
+import DocumentManagerr from "./pages/amc/DocumentManagerr";
 
 // Distributor pages
 import DistributorLogin from "./pages/distributor/DistributorLogin";
@@ -105,7 +106,7 @@ export default function App() {
       {/* Public Landing */}
       {/* <Route path="/" element={<GlobalPortal />} /> */}
       <Route path="/" element={<LandingPage />} />
-      
+
       <Route path="register" element={<Register />} />
       <Route path="login" element={<Login />} />
       <Route path="/maintenance" element={<MaintenanceAlerts />} />
@@ -121,7 +122,7 @@ export default function App() {
         <Route path="stp" element={<ProtectedRoute><STPSetup /></ProtectedRoute>} />
         <Route path="transactions" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
         <Route path="switch" element={<ProtectedRoute><SwitchSetup /></ProtectedRoute>} />
-        <Route path="unclaimed" element={<ProtectedRoute><UnclaimedAmounts/></ProtectedRoute>} />
+        <Route path="unclaimed" element={<ProtectedRoute><UnclaimedAmounts /></ProtectedRoute>} />
         <Route path="idcw" element={<ProtectedRoute><IDCWPreferences /></ProtectedRoute>} />
         <Route path="reports/capital-gains" element={<ProtectedRoute><CapitalGainsReport /></ProtectedRoute>} />
         <Route path="reports/valuation" element={<ProtectedRoute><ValuationReport /></ProtectedRoute>} />
@@ -133,18 +134,19 @@ export default function App() {
         <Route path="service-requests" element={<ProtectedRoute><ServiceRequests /></ProtectedRoute>} />
         <Route path="notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
-        <Route path="analytics/allocation" element={<ProtectedRoute><AssetAllocationChart /></ProtectedRoute>} />
+        <Route path="analytics/allocation" element={<ProtectedRoute><AssetAllocation /></ProtectedRoute>} />
         <Route path="complaints" element={<ProtectedRoute><InvestorComplaints /></ProtectedRoute>} />
         <Route path="profile/documents" element={<ProtectedRoute><DocumentManager /></ProtectedRoute>} />
         <Route path="disclosures" element={<RegulatoryDisclosure />} />
         <Route path="clients" element={<ProtectedRoute><ClientList /></ProtectedRoute>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/verify-otp" element={<VerifyOTP />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
 
       </Route>
 
-          
+
       <Route path="/admin/register" element={<AdminRegister />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin" element={<ProtectedRoute adminOnly><AdminLayout /></ProtectedRoute>}>
@@ -217,7 +219,7 @@ export default function App() {
         <Route path="folio-details" element={<FolioAccountDetails />} />
       </Route>
 
-      
+
     </Routes>
   );
 }

@@ -10,7 +10,7 @@ from app.models.investor import Investor
 from app.models.admin import SystemAlert, SystemAlertType, AuditLog, BatchJob, BatchJobStatus
 from app.models.scheme import Scheme
 from app.models.amc import AMC
-from app.models.document import UnclaimedAmount
+from app.models.unclaimed import UnclaimedAmount, UnclaimedStatus
 from app.core.jwt import get_current_user
 from app.models.user import User
 

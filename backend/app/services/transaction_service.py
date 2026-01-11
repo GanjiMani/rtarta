@@ -19,6 +19,7 @@ from app.models.mandate import (
     SIPRegistration, SWPRegistration, STPRegistration,
     SIPFrequency, SIPStatus, MandateType
 )
+from app.models.unclaimed import UnclaimedAmount, UnclaimedStatus
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -588,7 +589,8 @@ class TransactionService:
             "summary": {
                 "total_investment": float(total_investment),
                 "current_value": float(current_value),
-                "gain_loss": float(current_value - total_investment)
+                "gain_loss": float(current_value - total_investment),
+                "folio_count": len(portfolio_list)
             }
         }
 
@@ -798,6 +800,119 @@ class TransactionService:
         
         # Ensure source folio current_nav is updated
         source_folio.current_nav = source_scheme.current_nav
+        
+        # Calculate purchase amount
+        source_nav = source_scheme.current_nav
+        purchase_amount = stp_reg.amount  # STP amount is fixed in INR
+        
+        # Note: If redemption was by units, we would convert units * nav
+        # But STP is usually by Amount, so we redeem 'amount' worth of units
+        # and buy 'amount' worth of units (minus exit load if any)
+        
+        # Process purchase in target scheme
+        purchase_txn = self.process_fresh_purchase(
+            investor_id=start_date if isinstance(start_date, str) else stp_reg.investor_id, # Fix: use correct investor_id
+            scheme_id=stp_reg.target_scheme_id,
+            amount=purchase_amount,
+            plan="Growth", # Default
+            payment_mode="net_banking"
+        )
+        purchase_txn.transaction_type = TransactionType.stp_purchase
+        
+        # Link transactions
+        purchase_txn.linked_transaction_id = redemption_txn.transaction_id
+        redemption_txn.linked_transaction_id = purchase_txn.transaction_id
+        
+        # Update STP registration
+        stp_reg.total_installments_completed += 1
+        stp_reg.total_amount_transferred += stp_reg.amount
+        stp_reg.last_processed_date = date.today()
+        stp_reg.last_transaction_id = purchase_txn.transaction_id
+        
+        # Calculate next installment date
+        if stp_reg.frequency == SIPFrequency.monthly:
+            if relativedelta:
+                stp_reg.next_installment_date = stp_reg.next_installment_date + relativedelta(months=1)
+            else:
+                stp_reg.next_installment_date = stp_reg.next_installment_date + timedelta(days=30)
+        elif stp_reg.frequency == SIPFrequency.quarterly:
+            if relativedelta:
+                stp_reg.next_installment_date = stp_reg.next_installment_date + relativedelta(months=3)
+            else:
+                stp_reg.next_installment_date = stp_reg.next_installment_date + timedelta(days=90)
+        elif stp_reg.frequency == SIPFrequency.weekly:
+            stp_reg.next_installment_date = stp_reg.next_installment_date + timedelta(weeks=1)
+        elif stp_reg.frequency == SIPFrequency.daily:
+            stp_reg.next_installment_date = stp_reg.next_installment_date + timedelta(days=1)
+            
+        # Check completion
+        if stp_reg.number_of_installments and stp_reg.total_installments_completed >= stp_reg.number_of_installments:
+            stp_reg.status = SIPStatus.completed
+        if stp_reg.end_date and stp_reg.next_installment_date > stp_reg.end_date:
+            stp_reg.status = SIPStatus.completed
+            
+        self.db.flush()
+        
+        return {
+            "redemption_transaction": redemption_txn,
+            "purchase_transaction": purchase_txn
+        }
+
+    def process_unclaimed_claim(self, unclaimed_id: str, investor_id: str) -> Transaction:
+        """Process claim for unclaimed amount"""
+        unclaimed = self.db.query(UnclaimedAmount).filter(
+            UnclaimedAmount.unclaimed_id == unclaimed_id
+        ).first()
+        
+        if not unclaimed:
+            raise ValueError(f"Unclaimed amount {unclaimed_id} not found")
+            
+        if unclaimed.investor_id != investor_id:
+            raise ValueError("Unclaimed amount does not belong to investor")
+            
+        if unclaimed.status != UnclaimedStatus.pending:
+            raise ValueError(f"Unclaimed amount is already {unclaimed.status.value}")
+            
+        # Calculate total payout
+        total_payout = unclaimed.total_amount
+        
+        # Generate transaction ID
+        transaction_id = self.generate_transaction_id()
+        
+        # Create payout transaction
+        transaction = Transaction(
+            transaction_id=transaction_id,
+            investor_id=investor_id,
+            folio_number=unclaimed.folio_number,
+            scheme_id=unclaimed.scheme_id,
+            amc_id="A001", # Placeholder, should fetch from scheme
+            transaction_type=TransactionType.unclaimed_payout,
+            transaction_date=date.today(),
+            amount=total_payout,
+            nav_per_unit=Decimal('0.00'), # Not applicable for payout
+            units=Decimal('0.00'),
+            status=TransactionStatus.completed,
+            payment_mode=PaymentMode.neft, # Default payout mode
+            processing_date=date.today(),
+            completion_date=date.today(),
+            remarks=f"Claim settlement for {unclaimed_id}"
+        )
+        
+        # Fetch scheme to get AMC ID (correction)
+        scheme = self.db.query(Scheme).filter(Scheme.scheme_id == unclaimed.scheme_id).first()
+        if scheme:
+            transaction.amc_id = scheme.amc_id
+            
+        self.db.add(transaction)
+        
+        # Update unclaimed status
+        unclaimed.status = UnclaimedStatus.claimed
+        unclaimed.claimed = True # For backward compatibility
+        unclaimed.claimed_date = date.today()
+        unclaimed.settlement_transaction_id = transaction_id
+        
+        self.db.flush()
+        return transaction
         source_folio.total_value = source_folio.total_units * source_folio.current_nav
         
         self.db.flush()

@@ -24,6 +24,10 @@ class TransactionType(enum.Enum):
     nominee_registration = "nominee_registration"
     address_update = "address_update"
     contact_update = "contact_update"
+    
+    # Unclaimed Funds
+    unclaimed_payout = "unclaimed_payout"
+    unclaimed_settlement = "unclaimed_settlement"
 
 
 class TransactionStatus(enum.Enum):

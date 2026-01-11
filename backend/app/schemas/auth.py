@@ -52,12 +52,13 @@ class InvestorRegistrationRequest(BaseModel):
     date_of_birth: date
     gender: str
     email: EmailStr
-    mobile_number: str = Field(..., pattern=r'^[6-9]\d{9}$')
+    mobile_number: str = Field(..., pattern=r'^\+?[0-9]{10,15}$')
     address_line1: str = Field(..., min_length=5, max_length=500)
     address_line2: Optional[str] = Field(None, max_length=500)
-    city: str = Field(..., min_length=2, max_length=100)
+    country: str = Field(default="India", min_length=2, max_length=100)
     state: str = Field(..., min_length=2, max_length=100)
-    pincode: str = Field(..., pattern=r'^\d{6}$')
+    city: str = Field(..., min_length=2, max_length=100)
+    pincode: str = Field(..., min_length=4, max_length=10) # Relaxed for international
     password: str = Field(..., min_length=8)
 
     @validator('date_of_birth')

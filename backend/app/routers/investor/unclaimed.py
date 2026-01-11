@@ -2,11 +2,132 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from app.db.session import get_db
-from app.services.investor_service import InvestorService
 from app.core.jwt import get_current_investor
 from app.models.user import User
-from app.models.document import UnclaimedAmount
+from app.models.unclaimed import UnclaimedAmount, UnclaimedStatus
+from app.services.transaction_service import TransactionService
+from app.models.transaction import Transaction
+from app.models.scheme import Scheme
+from datetime import date
 import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+@router.get("/")
+async def get_unclaimed_amounts(
+    current_user: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Get all unclaimed amounts for the investor"""
+    try:
+        if not current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User does not have an associated investor profile"
+            )
+            
+        # Query unclaimed amounts for this investor
+        unclaimed_amounts = db.query(UnclaimedAmount).filter(
+            UnclaimedAmount.investor_id == current_user.investor_id
+        ).all()
+        
+        unclaimed_list = []
+        for unclaimed in unclaimed_amounts:
+            # Get scheme details
+            scheme = db.query(Scheme).filter(Scheme.scheme_id == unclaimed.scheme_id).first()
+            scheme_name = scheme.scheme_name if scheme else unclaimed.scheme_id
+            
+            unclaimed_list.append({
+                "id": unclaimed.unclaimed_id, # Frontend uses id/unclaimed_id interchangeably
+                "unclaimed_id": unclaimed.unclaimed_id,
+                "folio_number": unclaimed.folio_number,
+                "scheme_id": unclaimed.scheme_id,
+                "scheme_name": scheme_name,
+                "amount": float(unclaimed.amount),
+                "accumulated_income": float(unclaimed.accumulated_income or 0),
+                "total_amount": float(unclaimed.total_amount),
+                "transaction_type": "Unclaimed Redemption/Dividend", # Generic description
+                "unclaimed_date": unclaimed.unclaimed_date.isoformat() if unclaimed.unclaimed_date else None,
+                "days_unclaimed": (date.today() - unclaimed.unclaimed_date).days if unclaimed.unclaimed_date else 0,
+                "unclaimed_reason": unclaimed.unclaimed_reason,
+                "claimed": unclaimed.status == UnclaimedStatus.claimed,
+                "status": "Pending" if unclaimed.status == UnclaimedStatus.pending else "Claimed",
+                "claimed_date": unclaimed.claimed_date.isoformat() if unclaimed.claimed_date else None
+            })
+        
+        return {
+            "message": "Unclaimed amounts retrieved successfully",
+            "data": unclaimed_list
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get unclaimed amounts error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve unclaimed amounts"
+        )
+
+
+@router.post("/claim")
+async def claim_unclaimed_amount(
+    claim_data: Dict[str, Any],
+    current_user: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Submit claim request for unclaimed amount"""
+    try:
+        if not current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User does not have an associated investor profile"
+            )
+            
+        unclaimed_id = claim_data.get("unclaimed_id")
+        if not unclaimed_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="unclaimed_id is required"
+            )
+        
+        # Process claim using service
+        transaction_service = TransactionService(db)
+        try:
+            transaction = transaction_service.process_unclaimed_claim(
+                unclaimed_id=unclaimed_id,
+                investor_id=current_user.investor_id
+            )
+            db.commit()
+            
+            return {
+                "message": "Claim processed successfully",
+                "data": {
+                    "transaction_id": transaction.transaction_id,
+                    "status": "completed",
+                    "amount": float(transaction.amount)
+                }
+            }
+            
+        except ValueError as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Claim unclaimed amount error: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process claim request"
+        )
 
 logger = logging.getLogger(__name__)
 

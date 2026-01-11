@@ -1,6 +1,55 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../services/AuthContext";
+import {
+  User,
+  Lock,
+  CheckCircle,
+  AlertCircle,
+  Globe,
+  Eye,
+  EyeOff,
+  LogIn
+} from "lucide-react";
+
+// InputField Component (Same as Register.jsx for consistency)
+const InputField = ({ label, name, type = "text", icon: Icon, placeholder, options = [], value, onChange, error, ...props }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+  const inputType = isPassword ? (showPassword ? "text" : "password") : type;
+
+  return (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          {Icon && <Icon className="h-5 w-5 text-gray-400" />}
+        </div>
+
+        <input
+          type={inputType}
+          name={name}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={`w-full pl-10 ${isPassword ? 'pr-10' : 'pr-4'} py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors
+            ${error ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+          {...props}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+          >
+            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          </button>
+        )}
+      </div>
+      {error && <p className="text-red-500 text-xs mt-1 flex items-center"><AlertCircle className="w-3 h-3 mr-1" />{error}</p>}
+    </div>
+  );
+};
 
 export default function Login() {
   const { login } = useAuth();
@@ -9,8 +58,9 @@ export default function Login() {
   const [formData, setFormData] = useState({ userId: "", password: "" });
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Regex patterns
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 
@@ -30,10 +80,21 @@ export default function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error when user types
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setApiError("");
+
     if (validate()) {
+      setIsSubmitting(true);
       try {
         const profileData = await login(formData.userId, formData.password);
         if (profileData.role === "admin") {
@@ -47,86 +108,117 @@ export default function Login() {
         }
       } catch (error) {
         setApiError(error.message);
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-8">
-        <h2 className="text-2xl font-bold text-center text-blue-600 mb-6">Investor Login</h2>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex overflow-hidden min-h-[500px]">
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email or PAN</label>
-            <input
-              type="text"
+        {/* Left Side - Branding */}
+        <div className="hidden md:flex w-1/2 bg-blue-600 p-8 flex-col justify-between text-white relative overflow-hidden">
+          <div className="relative z-10">
+            <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
+            <p className="text-blue-100">Access your portfolio and track your investments.</p>
+          </div>
+
+          <div className="relative z-10 space-y-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-blue-500/30 rounded-lg backdrop-blur-sm">
+                <CheckCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Secure Login</h3>
+                <p className="text-xs text-blue-100">Two-factor authentication enabled</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-blue-500/30 rounded-lg backdrop-blur-sm">
+                <Globe className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold">24/7 Access</h3>
+                <p className="text-xs text-blue-100">Monitor your wealth anytime</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative z-10 text-xs text-blue-200">
+            © 2024 RTA Management. All rights reserved.
+          </div>
+
+          {/* Decorative Circles */}
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-blue-500 rounded-full opacity-20 filter blur-2xl"></div>
+          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-purple-500 rounded-full opacity-20 filter blur-2xl"></div>
+        </div>
+
+        {/* Right Side - Login Form */}
+        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
+
+          <div className="mb-8 text-center md:text-left">
+            <h2 className="text-2xl font-bold text-gray-800">Investor Login</h2>
+            <p className="text-sm text-gray-500 mt-1">Please enter your details to sign in</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <InputField
+              label="Email or PAN"
+              name="userId"
+              icon={User}
               value={formData.userId}
-              onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-              placeholder="Enter your Email or PAN"
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              onChange={handleChange}
+              error={errors.userId}
+              placeholder="Enter Email or PAN"
             />
-            {errors.userId && <p className="text-red-500 text-sm mt-1">{errors.userId}</p>}
-          </div>
 
-          <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type={showPassword ? "text" : "password"}
+            <InputField
+              label="Password"
+              name="password"
+              type="password"
+              icon={Lock}
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              onChange={handleChange}
+              error={errors.password}
               placeholder="Enter your password"
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none pr-10"
             />
+
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center text-gray-600 cursor-pointer">
+                <input type="checkbox" className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                Remember Me
+              </label>
+              <Link to="/forgot-password" className="text-blue-600 font-medium hover:underline">
+                Forgot Password?
+              </Link>
+            </div>
+
+            {apiError && (
+              <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2" /> {apiError}
+              </div>
+            )}
+
             <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-9 focus:outline-none"
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full flex justify-center items-center py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {showPassword ? (
-                // Eye open (show password)
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              ) : (
-                // Eye closed (hide password)
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-6 0-9-7-9-7a18.176 18.176 0 013.838-5.707" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" />
-                </svg>
-              )}
+              <LogIn className="w-4 h-4 mr-2" />
+              {isSubmitting ? "Logging in..." : "Login"}
             </button>
-            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
-          </div>
+          </form>
 
-          {apiError && <p className="text-red-500 text-sm mt-1">{apiError}</p>}
-
-          <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center">
-              <input type="checkbox" className="mr-2" />
-              Remember Me
-            </label>
-            <Link to="/forgot-password" className="text-blue-600 hover:underline">
-              Forgot Password?
+          <p className="mt-8 text-sm text-center text-gray-600">
+            Don’t have an account?{" "}
+            <Link to="/register" className="text-blue-600 font-medium hover:underline">
+              Create Account
             </Link>
-          </div>
+          </p>
 
-          <button
-            type="submit"
-            className="w-full py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition"
-          >
-            Login
-          </button>
-        </form>
-
-        <p className="mt-6 text-sm text-center text-gray-600">
-          Don’t have an account?{" "}
-          <Link to="/register" className="text-blue-600 hover:underline">
-            Create Account
-          </Link>
-        </p>
+        </div>
       </div>
     </div>
   );

@@ -16,8 +16,8 @@ class InvestorBase(BaseModel):
     marital_status: Optional[MaritalStatus] = None
     investor_type: InvestorType = InvestorType.individual
     email: EmailStr
-    mobile_number: str = Field(..., pattern=r'^[6-9]\d{9}$')
-    alternate_mobile: Optional[str] = Field(None, pattern=r'^[6-9]\d{9}$')
+    mobile_number: str = Field(..., pattern=r'^\+?[0-9]{10,15}$')
+    alternate_mobile: Optional[str] = Field(None, pattern=r'^\+?[0-9]{10,15}$')
     address_line1: str = Field(..., min_length=5, max_length=500)
     address_line2: Optional[str] = Field(None, max_length=500)
     city: str = Field(..., min_length=2, max_length=100)
@@ -42,8 +42,8 @@ class InvestorCreate(InvestorBase):
 
 class InvestorUpdate(BaseModel):
     full_name: Optional[str] = Field(None, min_length=2, max_length=255)
-    mobile_number: Optional[str] = Field(None, pattern=r'^[6-9]\d{9}$')
-    alternate_mobile: Optional[str] = Field(None, pattern=r'^[6-9]\d{9}$')
+    mobile_number: Optional[str] = Field(None, pattern=r'^\+?[0-9]{10,15}$')
+    alternate_mobile: Optional[str] = Field(None, pattern=r'^\+?[0-9]{10,15}$')
     address_line1: Optional[str] = Field(None, min_length=5, max_length=500)
     address_line2: Optional[str] = Field(None, max_length=500)
     city: Optional[str] = Field(None, min_length=2, max_length=100)

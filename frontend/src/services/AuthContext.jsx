@@ -125,37 +125,37 @@ export function AuthProvider({ children }) {
     return res;
   }
 
-    async function register(payload, isAdmin = false) {
-  setLoading(true);
-  try {
-    // Pick the correct endpoint
-    const endpoint = isAdmin ? "/api/v1/admin/register" : "/api/investor/auth/register";
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+  async function register(payload, isAdmin = false) {
+    setLoading(true);
+    try {
+      // Pick the correct endpoint
+      const endpoint = isAdmin ? "/api/v1/admin/register" : "/api/investor/auth/register";
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      if (Array.isArray(errorData.detail)) {
-        const messages = errorData.detail
-          .map((err) => `${err.loc.join(".")}: ${err.msg}`)
-          .join(", ");
-        throw new Error(messages);
-      } else {
-        throw new Error(errorData.detail || "Registration failed");
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (Array.isArray(errorData.detail)) {
+          const messages = errorData.detail
+            .map((err) => `${err.loc.join(".")}: ${err.msg}`)
+            .join(", ");
+          throw new Error(messages);
+        } else {
+          throw new Error(errorData.detail || "Registration failed");
+        }
       }
-    }
 
-    setLoading(false);
-  } catch (error) {
-    setLoading(false);
-    console.error("Register error", error);
-    throw error;
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error("Register error", error);
+      throw error;
+    }
   }
-}
-async function login(email, password, isAdmin = false) {
+  async function login(email, password, isAdmin = false) {
     setLoading(true);
     setError(null);
 
@@ -234,6 +234,18 @@ async function login(email, password, isAdmin = false) {
     navigate("/");
   }
 
+  async function fetchPublic(url, options = {}) {
+    const headers = {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    };
+    const opts = { ...options, headers };
+
+    // Prepend API_URL to the URL
+    const res = await fetch(API_URL + url, opts);
+    return res;
+  }
+
   const value = useMemo(
     () => ({
       user,
@@ -243,6 +255,7 @@ async function login(email, password, isAdmin = false) {
       register,
       logout,
       fetchWithAuth,
+      fetchPublic,
     }),
     [user, token, loading]
   );
