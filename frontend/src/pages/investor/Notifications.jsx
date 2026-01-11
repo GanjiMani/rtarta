@@ -1,11 +1,34 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../services/AuthContext";
+import {
+  Bell,
+  Check,
+  CheckCircle,
+  X,
+  Trash2,
+  Filter,
+  AlertCircle,
+  Info,
+  ShieldCheck,
+  ArrowRight,
+  Clock,
+  Inbox
+} from "lucide-react";
+
+const notificationTypes = {
+  transaction: { icon: ArrowRight, color: "blue", label: "Transaction" },
+  system: { icon: Info, color: "indigo", label: "System Update" },
+  security: { icon: ShieldCheck, color: "violet", label: "Security" },
+  alert: { icon: AlertCircle, color: "rose", label: "Alert" },
+  service_request: { icon: CheckCircle, color: "emerald", label: "Service Request" },
+};
 
 export default function Notifications() {
   const { fetchWithAuth } = useAuth();
   const [notes, setNotes] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all"); // all, unread
 
   useEffect(() => {
     if (fetchWithAuth) {
@@ -18,171 +41,205 @@ export default function Notifications() {
     setError("");
     try {
       const res = await fetchWithAuth(`/api/investor/notifications`);
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Failed to fetch notifications");
-      }
+      if (!res.ok) throw new Error("Failed to fetch notifications");
       const data = await res.json();
       setNotes(data.data || []);
     } catch (err) {
       setError(err.message);
-      console.error("Error fetching notifications:", err);
     } finally {
       setLoading(false);
     }
   };
 
   const markRead = async (id) => {
-    setError("");
     try {
       const res = await fetchWithAuth(`/api/investor/notifications/${id}/read`, {
         method: "PUT",
       });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Failed to mark notification as read");
-      }
-      setNotes((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true, is_read: true } : n))
-      );
+      if (!res.ok) throw new Error("Failed to mark as read");
+
+      setNotes(notes.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch (err) {
       setError(err.message);
-      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      const res = await fetchWithAuth(`/api/investor/notifications/read-all`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to mark all as read");
+
+      setNotes(notes.map(n => ({ ...n, is_read: true })));
+    } catch (err) {
+      setError(err.message);
     }
   };
 
   const clearAll = async () => {
-    if (!window.confirm("Are you sure you want to clear all notifications?")) {
-      return;
-    }
-    setError("");
+    if (!window.confirm("Are you sure you want to clear all notification history?")) return;
     try {
       const res = await fetchWithAuth(`/api/investor/notifications/clear`, {
         method: "POST",
       });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Failed to clear notifications");
-      }
+      if (!res.ok) throw new Error("Failed to clear notifications");
       setNotes([]);
     } catch (err) {
       setError(err.message);
-      console.error("Error clearing notifications:", err);
     }
   };
 
-  const unreadCount = notes.filter((n) => !n.read && !n.is_read).length;
+  const filteredNotes = notes.filter(n => {
+    if (filter === "unread") return !n.is_read;
+    return true;
+  });
+
+  const unreadCount = notes.filter(n => !n.is_read).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Notifications</h1>
-          <p className="text-gray-600">
-            Stay updated with important information and updates about your account
-          </p>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-red-800">{error}</p>
-              </div>
+    <div className="min-h-screen bg-slate-50 pb-20">
+      {/* Indigo Header */}
+      <div className="bg-gradient-to-r from-indigo-700 via-violet-700 to-purple-800 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-white/5 backdrop-blur-3xl animate-pulse"></div>
+        <div className="relative px-6 py-12 max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex items-center gap-6">
+            <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/20 shadow-inner">
+              <Bell className="w-10 h-10 text-indigo-100" />
             </div>
+            <div>
+              <h1 className="text-4xl font-extrabold tracking-tight">Notifications</h1>
+              <p className="text-indigo-100/70 text-lg mt-1">Stay updated with your account activity and system alerts</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllRead}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-xl font-bold transition-all border border-white/10"
+              >
+                <Check className="w-5 h-5" />
+                Mark all read
+              </button>
+            )}
+            <button
+              onClick={clearAll}
+              className="flex items-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-100 px-5 py-3 rounded-xl font-bold transition-all border border-rose-500/20"
+            >
+              <Trash2 className="w-5 h-5" />
+              Clear all
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 py-10 max-w-6xl mx-auto">
+        {error && (
+          <div className="mb-8 bg-rose-50 border-l-4 border-rose-500 p-4 rounded-xl flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top-4">
+            <AlertCircle className="w-6 h-6 text-rose-500" />
+            <p className="text-rose-700 font-semibold">{error}</p>
+            <button onClick={() => setError("")} className="ml-auto text-rose-400 hover:text-rose-600">
+              <X className="w-5 h-5" />
+            </button>
           </div>
         )}
 
-        {/* Notifications Card */}
-        <div className="bg-white shadow-lg rounded-xl overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">All Notifications</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {unreadCount > 0 ? (
-                    <span className="font-semibold text-blue-600">
-                      {unreadCount} unread notification{unreadCount !== 1 ? "s" : ""}
-                    </span>
-                  ) : (
-                    "All notifications read"
-                  )}
-                </p>
-              </div>
-              {notes.length > 0 && (
-                <button
-                  onClick={clearAll}
-                  className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  Clear All
-                </button>
-              )}
-            </div>
-          </div>
+        {/* Filters/Tabs */}
+        <div className="flex items-center gap-2 mb-8 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 w-fit">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-6 py-2.5 rounded-xl font-bold transition-all ${filter === "all" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "text-slate-500 hover:bg-slate-50"}`}
+          >
+            All <span className="ml-1 opacity-60 font-medium">({notes.length})</span>
+          </button>
+          <button
+            onClick={() => setFilter("unread")}
+            className={`px-6 py-2.5 rounded-xl font-bold transition-all ${filter === "unread" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "text-slate-500 hover:bg-slate-50"}`}
+          >
+            Unread {unreadCount > 0 && <span className="ml-1 bg-rose-500 text-white px-2 py-0.5 rounded-full text-[10px]">{unreadCount}</span>}
+          </button>
+        </div>
 
+        {/* Content Area */}
+        <div className="space-y-4">
           {loading ? (
-            <div className="p-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-4 text-gray-600">Loading notifications...</p>
-            </div>
-          ) : notes.length === 0 ? (
-            <div className="p-8 text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">No Notifications</h3>
-              <p className="mt-2 text-sm text-gray-500">
-                You're all caught up! There are no new notifications at this time.
+            Array(4).fill(0).map((_, i) => (
+              <div key={i} className="bg-white h-24 rounded-2xl border border-slate-100 animate-pulse"></div>
+            ))
+          ) : filteredNotes.length === 0 ? (
+            <div className="bg-white rounded-3xl p-16 text-center border border-slate-200 shadow-sm">
+              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Inbox className="w-12 h-12 text-slate-300" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">No notifications found</h3>
+              <p className="text-slate-500 max-w-sm mx-auto">
+                {filter === "unread" ? "You've read all your notifications. Great job staying updated!" : "Your inbox is currently empty. We'll notify you here when there's something new."}
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
-              {notes.map((n) => {
-                const isRead = n.read || n.is_read;
+            <div className="grid gap-4">
+              {filteredNotes.map((note) => {
+                const config = notificationTypes[note.notification_type] || notificationTypes.system;
+                const Icon = config.icon;
+
                 return (
                   <div
-                    key={n.id}
-                    className={`p-6 hover:bg-gray-50 transition-colors ${
-                      !isRead ? "bg-blue-50" : "bg-white"
-                    }`}
+                    key={note.id}
+                    className={`group relative bg-white p-6 rounded-2xl border transition-all hover:shadow-xl hover:-translate-y-0.5 ${!note.is_read ? "border-indigo-100 shadow-sm" : "border-slate-100 opacity-80"
+                      }`}
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-start">
-                          {!isRead && (
-                            <div className="mt-1.5 mr-3">
-                              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <h4 className={`text-lg font-semibold ${isRead ? "text-gray-700" : "text-gray-900"}`}>
-                              {n.title || n.subject || "Notification"}
-                            </h4>
-                            <p className="mt-1 text-gray-600 whitespace-pre-wrap">
-                              {n.message || n.content || n.description || "No content"}
-                            </p>
-                            <p className="mt-2 text-sm text-gray-500">
-                              {n.created_at
-                                ? new Date(n.created_at).toLocaleString()
-                                : n.date || n.timestamp || "Unknown date"}
-                            </p>
-                          </div>
-                        </div>
+                    {!note.is_read && (
+                      <div className="absolute top-6 left-0 w-1 h-12 bg-indigo-600 rounded-r-full shadow-[0_0_10px_rgba(79,70,229,0.5)]"></div>
+                    )}
+
+                    <div className="flex items-start gap-6">
+                      <div className={`p-4 rounded-2xl ${note.is_read ? 'bg-slate-50 text-slate-400' : `bg-${config.color}-50 text-${config.color}-600`} transition-colors`}>
+                        <Icon className="w-6 h-6" />
                       </div>
-                      {!isRead && (
-                        <button
-                          onClick={() => markRead(n.id)}
-                          className="ml-4 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                        >
-                          Mark as Read
-                        </button>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-4 mb-1">
+                          <div className="flex items-center gap-3">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${note.is_read ? 'text-slate-400' : `text-${config.color}-600`}`}>
+                              {config.label}
+                            </span>
+                            <span className="text-slate-300 text-xs">•</span>
+                            <div className="flex items-center gap-1.5 text-slate-400 text-xs font-medium">
+                              <Clock className="w-3.5 h-3.5" />
+                              {new Date(note.created_at).toLocaleString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                          {!note.is_read && (
+                            <button
+                              onClick={() => markRead(note.id)}
+                              className="text-indigo-600 font-bold text-sm hover:text-indigo-800 flex items-center gap-1 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Mark as read
+                            </button>
+                          )}
+                        </div>
+
+                        <h4 className={`text-xl font-bold mb-1 truncate ${note.is_read ? 'text-slate-600' : 'text-slate-900'}`}>
+                          {note.title}
+                        </h4>
+                        <p className={`text-slate-600 leading-relaxed max-w-4xl ${note.is_read ? 'line-clamp-1' : ''}`}>
+                          {note.message}
+                        </p>
+                      </div>
+
+                      {note.priority === "high" && (
+                        <div className="flex-shrink-0">
+                          <span className="px-3 py-1 bg-rose-50 text-rose-600 text-[10px] font-black uppercase tracking-wider rounded-lg border border-rose-100">
+                            Urgent
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
