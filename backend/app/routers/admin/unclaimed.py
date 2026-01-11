@@ -4,7 +4,7 @@ from sqlalchemy import and_, or_, desc, func
 from datetime import datetime, date, timedelta
 from typing import Optional
 from app.db.session import get_db
-from app.models.unclaimed import UnclaimedAmount, UnclaimedStatus
+from app.models.unclaimed import UnclaimedAmount
 from app.models.transaction import Transaction
 from app.models.investor import Investor
 from app.models.folio import Folio

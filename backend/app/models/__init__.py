@@ -8,7 +8,7 @@ from .mandate import BankAccount, Nominee, SIPRegistration, SWPRegistration, STP
 from .folio import Folio
 from .transaction import Transaction
 from .document import Document
-from .unclaimed import UnclaimedAmount, UnclaimedStatus
+from .unclaimed import UnclaimedAmount
 from .admin import (
     AdminUser, Approval, AuditLog, SystemAlert, BatchJob, Reconciliation,
     Exception, UserSession, SystemSetting, RegulatoryFiling

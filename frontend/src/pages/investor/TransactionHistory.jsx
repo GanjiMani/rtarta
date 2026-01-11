@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../services/AuthContext";
-import { Search, Filter, Download, RefreshCw, X } from "lucide-react";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { Search, Filter, Download, RefreshCw, X, ArrowUpRight, ArrowDownRight, Clock, FileText } from "lucide-react";
 
 export default function TransactionHistory() {
   const { fetchWithAuth } = useAuth();
@@ -36,7 +34,7 @@ export default function TransactionHistory() {
       const data = await response.json();
       const txnList = data.data?.transactions || [];
       setTransactions(txnList);
-      setFilteredTransactions(txnList); // Initialize filtered list
+      setFilteredTransactions(txnList);
     } catch (err) {
       setError(err.message || "Failed to load transaction history");
       console.error("Transaction history error:", err);
@@ -48,17 +46,16 @@ export default function TransactionHistory() {
   const applyFilters = () => {
     let filtered = [...transactions];
 
-    // Search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter((t) =>
         t.transaction_id?.toLowerCase().includes(searchLower) ||
+        t.scheme_name?.toLowerCase().includes(searchLower) ||
         t.scheme_id?.toLowerCase().includes(searchLower) ||
         t.folio_number?.toLowerCase().includes(searchLower)
       );
     }
 
-    // Type filter
     if (filterType !== "all") {
       filtered = filtered.filter((t) => {
         const type = t.transaction_type?.toLowerCase() || "";
@@ -66,7 +63,6 @@ export default function TransactionHistory() {
       });
     }
 
-    // Status filter
     if (filterStatus !== "all") {
       filtered = filtered.filter((t) => {
         const status = t.status?.toLowerCase() || "";
@@ -82,10 +78,10 @@ export default function TransactionHistory() {
       "Transaction ID",
       "Date",
       "Type",
-      "Scheme ID",
+      "Scheme",
       "Folio Number",
       "Units",
-      "NAV per Unit",
+      "NAV",
       "Amount",
       "Status",
       "Payment Mode"
@@ -95,7 +91,7 @@ export default function TransactionHistory() {
       t.transaction_id || "",
       t.transaction_date || "",
       t.transaction_type || "",
-      t.scheme_id || "",
+      t.scheme_name || t.scheme_id || "",
       t.folio_number || "",
       t.units || 0,
       t.nav_per_unit || 0,
@@ -120,74 +116,69 @@ export default function TransactionHistory() {
     document.body.removeChild(link);
   };
 
-  const getStatusBadgeClass = (status) => {
-    const statusLower = status?.toLowerCase() || "";
-    if (statusLower === "completed") {
-      return "bg-green-100 text-green-800";
-    } else if (statusLower === "pending") {
-      return "bg-yellow-100 text-yellow-800";
-    } else if (statusLower === "failed" || statusLower === "rejected") {
-      return "bg-red-100 text-red-800";
-    } else if (statusLower === "processing") {
-      return "bg-blue-100 text-blue-800";
+  const getStatusBadge = (status) => {
+    const s = status?.toLowerCase() || "";
+    if (s === "completed") {
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">Completed</span>;
     }
-    return "bg-gray-100 text-gray-800";
+    if (s === "pending") {
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-700">Pending</span>;
+    }
+    if (s === "processing") {
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700">Processing</span>;
+    }
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700">{status || "Failed"}</span>;
   };
 
-  const getTypeBadgeClass = (type) => {
-    const typeLower = type?.toLowerCase() || "";
-    if (typeLower.includes("purchase") || typeLower.includes("sip")) {
-      return "bg-blue-50 text-blue-700 border border-blue-200";
-    } else if (typeLower.includes("redemption") || typeLower.includes("swp")) {
-      return "bg-orange-50 text-orange-700 border border-orange-200";
-    } else if (typeLower.includes("switch") || typeLower.includes("stp")) {
-      return "bg-purple-50 text-purple-700 border border-purple-200";
+  const getTypeIcon = (type) => {
+    const t = type?.toLowerCase() || "";
+    if (t.includes('redemption') || t.includes('swp') || t.includes('switch_redemption')) {
+      return <ArrowUpRight className="w-4 h-4 text-orange-500" />;
     }
-    return "bg-gray-50 text-gray-700 border border-gray-200";
+    return <ArrowDownRight className="w-4 h-4 text-green-500" />;
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading transaction history...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading transaction history...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-12">
       {/* Gradient Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-700 text-white shadow-lg">
-        <div className="px-6 py-8">
-          <h1 className="text-3xl font-bold mb-2">Transaction History</h1>
-          <p className="text-purple-100 text-lg">
-            View and manage all your investment transactions
+      <div className="bg-gradient-to-r from-purple-800 to-indigo-700 text-white shadow-xl">
+        <div className="max-w-7xl mx-auto px-6 py-10">
+          <h1 className="text-3xl font-bold mb-1">Transaction History</h1>
+          <p className="text-purple-100 text-lg opacity-90">
+            Track and manage your investment activities
           </p>
         </div>
       </div>
 
-      <div className="px-6 py-6">
+      <div className="max-w-7xl mx-auto px-6 -mt-8">
         {error && (
-          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-            <p className="text-red-700">{error}</p>
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-sm">
+            <p className="text-red-700 font-medium">{error}</p>
           </div>
         )}
 
-        {/* Search and Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        {/* Filters Card */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
             <div className="md:col-span-2 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search by Transaction ID, Scheme, or Folio..."
+                placeholder="Search by ID, Scheme, or Folio..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-50 focus:bg-white transition-all"
               />
               {searchTerm && (
                 <button
@@ -199,12 +190,11 @@ export default function TransactionHistory() {
               )}
             </div>
 
-            {/* Type Filter */}
             <div>
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-50"
               >
                 <option value="all">All Types</option>
                 <option value="purchase">Purchase</option>
@@ -216,12 +206,11 @@ export default function TransactionHistory() {
               </select>
             </div>
 
-            {/* Status Filter */}
             <div>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-50"
               >
                 <option value="all">All Statuses</option>
                 <option value="completed">Completed</option>
@@ -232,23 +221,22 @@ export default function TransactionHistory() {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-100">
             <div className="text-sm text-gray-600">
-              Showing <span className="font-semibold">{filteredTransactions.length}</span> of{" "}
-              <span className="font-semibold">{transactions.length}</span> transactions
+              Showing <span className="font-semibold text-gray-900">{filteredTransactions.length}</span> of{" "}
+              <span className="font-semibold text-gray-900">{transactions.length}</span> records
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={fetchTransactions}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
               >
                 <RefreshCw className="w-4 h-4" />
                 Refresh
               </button>
               <button
                 onClick={exportToCSV}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm hover:shadow"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
@@ -258,109 +246,81 @@ export default function TransactionHistory() {
         </div>
 
         {/* Transactions Table */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50/80">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Transaction ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Scheme
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Folio
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Units
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    NAV/Unit
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment Mode
-                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reference</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Scheme / Folio</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-50">
                 {filteredTransactions.length > 0 ? (
                   filteredTransactions.map((t, index) => (
-                    <tr key={t.transaction_id || index} className="hover:bg-gray-50 transition-colors">
+                    <tr key={t.transaction_id || index} className="hover:bg-gray-50/50 transition-colors group">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{t.transaction_id || "N/A"}</div>
+                        <div className="text-sm font-semibold text-gray-900">{t.transaction_id || "N/A"}</div>
+                        <div className="text-xs text-gray-400 font-mono mt-0.5">ID</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Clock className="w-4 h-4 text-gray-400" />
                           {t.transaction_date
                             ? new Date(t.transaction_date).toLocaleDateString("en-IN", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric"
-                              })
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })
                             : "N/A"}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadgeClass(
-                            t.transaction_type
-                          )}`}
-                        >
-                          {t.transaction_type || "N/A"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <div className={`p-1.5 rounded-full ${t.transaction_type?.includes('redemption')
+                              ? 'bg-orange-50'
+                              : 'bg-green-50'
+                            }`}>
+                            {getTypeIcon(t.transaction_type)}
+                          </div>
+                          <span className="text-sm font-medium text-gray-700 capitalize">
+                            {t.transaction_type?.replace(/_/g, " ") || "N/A"}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{t.scheme_id || "N/A"}</div>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-900">{t.scheme_name || t.scheme_id || "Unknown Scheme"}</span>
+                          <span className="text-xs text-gray-500 font-mono mt-0.5">{t.folio_number}</span>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{t.folio_number || "N/A"}</div>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm font-bold text-gray-900">
+                          ₹{Number(t.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {t.units ? `${Number(t.units).toFixed(3)} units` : '-'}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                        {t.units != null ? Number(t.units).toFixed(4) : "0.0000"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                        ₹{t.nav_per_unit != null ? Number(t.nav_per_unit).toFixed(4) : "0.0000"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-gray-900">
-                        ₹{Number(t.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(
-                            t.status
-                          )}`}
-                        >
-                          {t.status || "N/A"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500 capitalize">{t.payment_mode || "N/A"}</div>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {getStatusBadge(t.status)}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="10" className="px-6 py-12 text-center">
-                      <div className="text-gray-500">
-                        <Filter className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                        <p className="text-lg font-medium">No transactions found</p>
-                        <p className="text-sm mt-2">
-                          {searchTerm || filterType !== "all" || filterStatus !== "all"
-                            ? "Try adjusting your filters"
-                            : "Your transaction history will appear here"}
+                    <td colSpan="6" className="px-6 py-16 text-center">
+                      <div className="flex flex-col items-center">
+                        <div className="p-4 bg-gray-50 rounded-full mb-4">
+                          <FileText className="w-8 h-8 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-1">No transactions found</h3>
+                        <p className="text-gray-500 text-sm">
+                          Try adjusting your search filters to find what you're looking for.
                         </p>
                       </div>
                     </td>

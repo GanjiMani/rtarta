@@ -123,15 +123,20 @@ export default function IDCWPreferences() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Gradient Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-700 text-white shadow-lg">
-        <div className="px-6 py-8">
-          <div className="flex items-center gap-3 mb-2">
-            <BadgeIndianRupee className="w-8 h-8" />
-            <h1 className="text-3xl font-bold">IDCW Preferences</h1>
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-700 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-white/5 backdrop-blur-sm"></div>
+        <div className="relative px-6 py-10 max-w-4xl mx-auto">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
+              <BadgeIndianRupee className="w-8 h-8 text-indigo-100" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">IDCW Preferences</h1>
+              <p className="text-indigo-100 text-lg opacity-90">
+                Manage your Income Distribution & Capital Withdrawal preferences
+              </p>
+            </div>
           </div>
-          <p className="text-indigo-100 text-lg">
-            Manage your Income Distribution & Capital Withdrawal preferences
-          </p>
         </div>
       </div>
 
@@ -145,8 +150,8 @@ export default function IDCWPreferences() {
             <div className="ml-4">
               <h3 className="text-sm font-semibold text-blue-900 mb-2">About IDCW Preferences</h3>
               <p className="text-sm text-blue-700">
-                IDCW (Income Distribution & Capital Withdrawal) allows you to choose how dividends from your mutual fund investments are handled. 
-                Choose <strong>Payout</strong> to receive dividends directly in your bank account, or <strong>Reinvestment</strong> to automatically 
+                IDCW (Income Distribution & Capital Withdrawal) allows you to choose how dividends from your mutual fund investments are handled.
+                Choose <strong>Payout</strong> to receive dividends directly in your bank account, or <strong>Reinvestment</strong> to automatically
                 reinvest dividends back into the same scheme to benefit from compounding.
               </p>
             </div>
@@ -190,9 +195,8 @@ export default function IDCWPreferences() {
                     <div className="flex items-start gap-4 flex-1">
                       {/* Icon */}
                       <div
-                        className={`p-3 rounded-lg ${
-                          isPayout ? "bg-blue-100" : "bg-green-100"
-                        }`}
+                        className={`p-3 rounded-lg ${isPayout ? "bg-blue-100" : "bg-green-100"
+                          }`}
                       >
                         {getPreferenceIcon(pref.preference)}
                       </div>
@@ -207,11 +211,10 @@ export default function IDCWPreferences() {
                         </p>
                         <div className="flex items-center gap-2">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              isPayout
+                            className={`px-3 py-1 rounded-full text-xs font-semibold ${isPayout
                                 ? "bg-blue-100 text-blue-800 border border-blue-200"
                                 : "bg-green-100 text-green-800 border border-green-200"
-                            }`}
+                              }`}
                           >
                             Current: {pref.preference || "Payout"}
                           </span>
@@ -223,11 +226,10 @@ export default function IDCWPreferences() {
                     <div className="ml-4">
                       <div className="flex gap-3 items-center">
                         <label
-                          className={`cursor-pointer px-4 py-2 rounded-lg border-2 transition-all ${
-                            !isPayout
+                          className={`cursor-pointer px-4 py-2 rounded-lg border-2 transition-all ${!isPayout
                               ? "bg-green-50 border-green-500 text-green-700 font-semibold"
                               : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
-                          }`}
+                            }`}
                         >
                           <input
                             type="radio"
@@ -244,11 +246,10 @@ export default function IDCWPreferences() {
                         </label>
 
                         <label
-                          className={`cursor-pointer px-4 py-2 rounded-lg border-2 transition-all ${
-                            isPayout
+                          className={`cursor-pointer px-4 py-2 rounded-lg border-2 transition-all ${isPayout
                               ? "bg-blue-50 border-blue-500 text-blue-700 font-semibold"
                               : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
-                          }`}
+                            }`}
                         >
                           <input
                             type="radio"

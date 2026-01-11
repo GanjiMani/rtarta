@@ -108,11 +108,10 @@ export default function UnclaimedAmounts() {
     const isPending = !claimed || status === "Pending";
     return (
       <span
-        className={`px-3 py-1 rounded-full text-xs font-semibold border ${
-          isPending
+        className={`px-3 py-1 rounded-full text-xs font-semibold border ${isPending
             ? "bg-yellow-100 text-yellow-800 border-yellow-200"
             : "bg-green-100 text-green-800 border-green-200"
-        }`}
+          }`}
       >
         {isPending ? "Pending" : "Claimed"}
       </span>
@@ -123,7 +122,7 @@ export default function UnclaimedAmounts() {
     if (!days) return null;
     let color = "bg-green-100 text-green-800 border-green-200";
     let label = `${days} days`;
-    
+
     if (days > 365) {
       color = "bg-red-100 text-red-800 border-red-200";
       label = `${Math.floor(days / 365)} year${Math.floor(days / 365) > 1 ? 's' : ''}`;
@@ -160,21 +159,24 @@ export default function UnclaimedAmounts() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-amber-600 to-orange-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="bg-gradient-to-r from-amber-600 to-orange-700 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-white/5 backdrop-blur-sm"></div>
+        <div className="relative px-6 py-10 max-w-7xl mx-auto">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <FileArchive className="w-8 h-8" />
-                <h1 className="text-3xl font-bold">Unclaimed Amounts</h1>
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
+                <FileArchive className="w-8 h-8 text-amber-100" />
               </div>
-              <p className="text-amber-100 text-lg">
-                View and claim your unclaimed redemption and dividend amounts
-              </p>
+              <div>
+                <h1 className="text-3xl font-bold">Unclaimed Amounts</h1>
+                <p className="text-amber-100 text-lg opacity-90">
+                  View and claim your unclaimed redemption and dividend amounts
+                </p>
+              </div>
             </div>
             <button
               onClick={fetchUnclaimed}
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 font-medium"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
@@ -239,8 +241,8 @@ export default function UnclaimedAmounts() {
             <div className="ml-4">
               <h3 className="text-sm font-semibold text-blue-900 mb-2">About Unclaimed Amounts</h3>
               <p className="text-sm text-blue-700">
-                Unclaimed amounts are redemption proceeds or dividend payments that couldn't be credited to your bank account 
-                due to incorrect bank details, account closure, or other issues. You can claim these amounts, and they will be 
+                Unclaimed amounts are redemption proceeds or dividend payments that couldn't be credited to your bank account
+                due to incorrect bank details, account closure, or other issues. You can claim these amounts, and they will be
                 processed and credited to your registered bank account. Accumulated interest, if any, is included in the total amount.
               </p>
             </div>
@@ -307,7 +309,7 @@ export default function UnclaimedAmounts() {
                   {unclaimed.map((item) => {
                     const isClaiming = claimingId === item.unclaimed_id || claimingId === item.id;
                     const canClaim = !item.claimed && item.status === "Pending";
-                    
+
                     return (
                       <tr key={item.id || item.unclaimed_id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">

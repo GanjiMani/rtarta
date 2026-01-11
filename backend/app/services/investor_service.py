@@ -280,26 +280,21 @@ class InvestorService:
 
     def get_investor_dashboard_data(self, investor_id: str) -> Dict[str, Any]:
         """Get dashboard data for investor"""
-        # Get portfolio folios with scheme details
-        folios_query = self.db.query(
-            Folio.folio_number,
-            Folio.scheme_id,
-            Folio.total_units,
-            Folio.total_investment,
-            Folio.total_value,
-            Folio.amc_id
-        ).filter(
+        # Optimize: EAGER LOAD Scheme relationship
+        from sqlalchemy.orm import joinedload
+        
+        folios_query = self.db.query(Folio).options(joinedload(Folio.scheme)).filter(
             Folio.investor_id == investor_id,
             Folio.status == FolioStatus.active
         ).all()
 
-        # Get scheme details for each folio
+        # Get scheme details for each folio (now eager loaded)
         portfolio_list = []
         total_investment = 0.0
         current_value = 0.0
         
         for folio in folios_query:
-            scheme = self.db.query(Scheme).filter(Scheme.scheme_id == folio.scheme_id).first()
+            scheme = folio.scheme
             if scheme:
                 # Calculate current value from current NAV
                 current_nav = float(scheme.current_nav) if scheme.current_nav else 0.0
@@ -310,6 +305,7 @@ class InvestorService:
                     "folio_number": folio.folio_number,
                     "scheme_id": folio.scheme_id,
                     "scheme_name": scheme.scheme_name,
+                    "scheme_type": scheme.scheme_type.value if hasattr(scheme.scheme_type, 'value') else str(scheme.scheme_type), # Added for dashboard filtering
                     "total_units": total_units,
                     "total_investment": float(folio.total_investment) if folio.total_investment else 0.0,
                     "total_value": calculated_total_value,
@@ -384,7 +380,7 @@ class InvestorService:
         return self.db.query(Folio).filter(Folio.investor_id == investor_id).all()
 
     def get_folios(self, investor_id: str, active_only: bool = False, with_units_only: bool = False) -> List[Dict[str, Any]]:
-        """Get all folios for investor as dictionaries"""
+        """Get all folios for investor as dictionaries with eager loading"""
         if not investor_id:
             logger.error("get_folios called with empty investor_id")
             return []
@@ -392,8 +388,11 @@ class InvestorService:
         logger.info(f"Fetching folios for investor: {investor_id} (active_only={active_only}, with_units_only={with_units_only})")
         
         try:
-            # Build query with filters
-            query = self.db.query(Folio).filter(Folio.investor_id == investor_id)
+            # Optimize: EAGER LOAD Scheme relationship in a single query
+            # This fixes the N+1 query problem where we were querying Scheme for every Folio
+            from sqlalchemy.orm import joinedload
+            
+            query = self.db.query(Folio).options(joinedload(Folio.scheme)).filter(Folio.investor_id == investor_id)
             
             # Apply status filter if needed
             if active_only:
@@ -403,14 +402,15 @@ class InvestorService:
             
             folios = query.all()
             
+            # Additional python-side filtering if needed (though DB filtering is better if possible)
             if with_units_only:
                 folios = [f for f in folios if float(f.total_units or 0) > 0]
             
             folio_list = []
             for folio in folios:
                 try:
-                    # Get scheme details
-                    scheme = self.db.query(Scheme).filter(Scheme.scheme_id == folio.scheme_id).first()
+                    # Scheme is now already loaded on the folio object
+                    scheme = folio.scheme
                     
                     if not scheme:
                         logger.warning(f"Scheme {folio.scheme_id} not found for folio {folio.folio_number}")
@@ -429,6 +429,7 @@ class InvestorService:
                         "scheme_name": scheme.scheme_name,
                         "scheme_type": scheme.scheme_type.value if hasattr(scheme.scheme_type, 'value') else str(scheme.scheme_type),
                         "amc_id": folio.amc_id,
+                        "amc_name": folio.amc.amc_name if folio.amc else None, # Assuming AMC can be lazy loaded or we add it to joinedload too
                         "total_units": float(folio.total_units) if folio.total_units else 0.0,
                         "current_nav": float(scheme.current_nav) if scheme.current_nav else 0.0,
                         "total_value": current_value,

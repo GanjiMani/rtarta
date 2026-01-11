@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import Dict, Any
-from datetime import date, timedelta
+from sqlalchemy import and_
+from typing import Dict, Any, List, Optional
+from datetime import date, timedelta, datetime
+from decimal import Decimal
 from app.db.session import get_db
 from app.core.jwt import get_current_investor
 from app.models.user import User
-from app.models.transaction import Transaction
+from app.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.models.folio import Folio, FolioStatus
-from app.models.scheme import Scheme
+from app.models.scheme import Scheme, SchemeType
 from app.models.investor import Investor
 from app.models.amc import AMC
 import logging
@@ -17,14 +19,108 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def calculate_capital_gains_fifo(purchases: List[Dict], redemptions: List[Dict]) -> List[Dict]:
+    """
+    Calculate capital gains using FIFO (First In First Out) method
+    
+    Args:
+        purchases: List of purchase transactions with units, nav, date
+        redemptions: List of redemption transactions with units, nav, date
+    
+    Returns:
+        List of capital gains with holding period, cost basis, and gain/loss
+    """
+    capital_gains = []
+    purchase_queue = purchases.copy()  # Queue of remaining purchase units
+    
+    for redemption in redemptions:
+        redeemed_units = Decimal(str(redemption['units']))
+        redemption_nav = Decimal(str(redemption['nav']))
+        redemption_date = redemption['date']
+        redemption_amount = redeemed_units * redemption_nav
+        
+        remaining_units = redeemed_units
+        cost_basis = Decimal('0')
+        
+        # Match redemption with purchases using FIFO
+        while remaining_units > 0 and purchase_queue:
+            purchase = purchase_queue[0]
+            available_units = Decimal(str(purchase['remaining_units']))
+            purchase_nav = Decimal(str(purchase['nav']))
+            purchase_date = purchase['date']
+            
+            # Units to match from this purchase
+            units_to_match = min(remaining_units, available_units)
+            
+            # Calculate cost basis for these units
+            cost_for_units = units_to_match * purchase_nav
+            cost_basis += cost_for_units
+            
+            # Calculate holding period
+            holding_days = (redemption_date - purchase_date).days
+            holding_years = holding_days / 365.0
+            
+            # Determine if long-term or short-term (1 year for equity, 3 years for debt)
+            is_equity = purchase.get('is_equity', True)
+            threshold_years = 1 if is_equity else 3
+            is_long_term = holding_years >= threshold_years
+            
+            # Calculate gain/loss for this portion
+            sale_value = units_to_match * redemption_nav
+            gain_loss = sale_value - cost_for_units
+            
+            capital_gains.append({
+                'transaction_id': redemption['transaction_id'],
+                'scheme_id': redemption['scheme_id'],
+                'scheme_name': redemption.get('scheme_name', ''),
+                'purchase_date': purchase_date,
+                'redemption_date': redemption_date,
+                'units': float(units_to_match),
+                'purchase_nav': float(purchase_nav),
+                'redemption_nav': float(redemption_nav),
+                'cost_basis': float(cost_for_units),
+                'sale_value': float(sale_value),
+                'gain_loss': float(gain_loss),
+                'holding_period_days': holding_days,
+                'holding_period_years': round(holding_years, 2),
+                'is_long_term': is_long_term,
+                'is_equity': is_equity
+            })
+            
+            # Update remaining units
+            remaining_units -= units_to_match
+            purchase['remaining_units'] = float(available_units - units_to_match)
+            
+            # Remove purchase from queue if fully consumed
+            if purchase['remaining_units'] <= 0:
+                purchase_queue.pop(0)
+    
+    return capital_gains
+
+
 @router.get("/capital-gains")
 async def get_capital_gains_report(
-    financial_year: str = None,  # Format: "2023-24"
+    financial_year: str = Query(None, description="Format: 2023-24"),
+    folio_number: Optional[str] = Query(None, description="Filter by specific folio"),
     current_user: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
-    """Generate capital gains report"""
+    """
+    Generate comprehensive capital gains report with FIFO calculation
+    
+    Calculates:
+    - Short-term capital gains (STCG): Equity < 1 year, Debt < 3 years
+    - Long-term capital gains (LTCG): Equity >= 1 year, Debt >= 3 years
+    - Proper cost basis using FIFO method
+    - Tax implications based on current Indian tax laws
+    """
     try:
+        if not current_user.investor_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User does not have an associated investor profile"
+            )
+        
         # Determine financial year
         if not financial_year:
             current_year = date.today().year
@@ -32,61 +128,188 @@ async def get_capital_gains_report(
                 financial_year = f"{current_year-1}-{str(current_year)[-2:]}"
             else:
                 financial_year = f"{current_year}-{str(current_year+1)[-2:]}"
-
+        
         # Parse financial year
-        start_year = int(financial_year.split('-')[0])
-        end_year = 2000 + int(financial_year.split('-')[1])
-
+        try:
+            start_year = int(financial_year.split('-')[0])
+            end_year_suffix = int(financial_year.split('-')[1])
+            end_year = 2000 + end_year_suffix if end_year_suffix < 100 else end_year_suffix
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid financial year format. Use YYYY-YY (e.g., 2023-24)"
+            )
+        
         fy_start = date(start_year, 4, 1)
         fy_end = date(end_year, 3, 31)
-
-        # Get all transactions for the investor in this FY
-        transactions = db.query(Transaction).filter(
+        
+        # Build query for redemptions in the financial year
+        redemption_query = db.query(Transaction).filter(
             Transaction.investor_id == current_user.investor_id,
             Transaction.transaction_date >= fy_start,
             Transaction.transaction_date <= fy_end,
-            Transaction.status == TransactionStatus.completed
-        ).order_by(Transaction.transaction_date).all()
-
-        # Calculate capital gains (simplified version)
-        capital_gains = {
-            "short_term": {"total": 0, "transactions": []},
-            "long_term": {"total": 0, "transactions": []}
-        }
-
-        # This is a simplified calculation
-        # In production, this would be much more complex with proper cost basis tracking
-        for transaction in transactions:
-            if transaction.transaction_type.value in ['redemption', 'switch_redemption']:
-                # Simplified: assume all gains are short-term for this example
-                gain_loss = transaction.amount  # This would be calculated properly
-                capital_gains["short_term"]["total"] += gain_loss
-                capital_gains["short_term"]["transactions"].append({
-                    "transaction_id": transaction.transaction_id,
-                    "scheme_id": transaction.scheme_id,
-                    "date": transaction.transaction_date,
-                    "amount": transaction.amount,
-                    "gain_loss": gain_loss
+            Transaction.status == TransactionStatus.completed,
+            Transaction.transaction_type.in_([
+                TransactionType.redemption,
+                TransactionType.switch_redemption
+            ])
+        )
+        
+        if folio_number:
+            redemption_query = redemption_query.filter(Transaction.folio_number == folio_number)
+        
+        redemptions = redemption_query.order_by(Transaction.transaction_date).all()
+        
+        if not redemptions:
+            return {
+                "message": "No redemptions found for the specified period",
+                "data": {
+                    "financial_year": financial_year,
+                    "period": {
+                        "start_date": fy_start.isoformat(),
+                        "end_date": fy_end.isoformat()
+                    },
+                    "capital_gains": {
+                        "short_term": {"total": 0, "transactions": []},
+                        "long_term": {"total": 0, "transactions": []}
+                    },
+                    "summary": {
+                        "total_short_term": 0,
+                        "total_long_term": 0,
+                        "total_taxable_gain": 0,
+                        "total_transactions": 0
+                    },
+                    "tax_implications": {
+                        "stcg_tax_rate": "As per income tax slab",
+                        "ltcg_equity_tax_rate": "10% (above ₹1 lakh exemption)",
+                        "ltcg_debt_tax_rate": "20% with indexation"
+                    }
+                }
+            }
+        
+        # Group redemptions by folio for FIFO calculation
+        folio_redemptions = {}
+        for redemption in redemptions:
+            if redemption.folio_number not in folio_redemptions:
+                folio_redemptions[redemption.folio_number] = []
+            folio_redemptions[redemption.folio_number].append(redemption)
+        
+        all_capital_gains = []
+        
+        # Process each folio
+        for folio_num, folio_redemptions_list in folio_redemptions.items():
+            # Get all purchases for this folio (before or on redemption dates)
+            max_redemption_date = max(r.transaction_date for r in folio_redemptions_list)
+            
+            purchases = db.query(Transaction).filter(
+                Transaction.investor_id == current_user.investor_id,
+                Transaction.folio_number == folio_num,
+                Transaction.transaction_date <= max_redemption_date,
+                Transaction.status == TransactionStatus.completed,
+                Transaction.transaction_type.in_([
+                    TransactionType.fresh_purchase,
+                    TransactionType.additional_purchase,
+                    TransactionType.sip,
+                    TransactionType.switch_purchase
+                ])
+            ).order_by(Transaction.transaction_date).all()
+            
+            if not purchases:
+                continue
+            
+            # Get scheme details to determine equity/debt
+            folio = db.query(Folio).filter(Folio.folio_number == folio_num).first()
+            scheme = db.query(Scheme).filter(Scheme.scheme_id == folio.scheme_id).first() if folio else None
+            is_equity = scheme.scheme_type == SchemeType.equity if scheme else True
+            
+            # Prepare purchase data for FIFO
+            purchase_data = []
+            for p in purchases:
+                purchase_data.append({
+                    'transaction_id': p.transaction_id,
+                    'date': p.transaction_date,
+                    'units': float(p.units),
+                    'remaining_units': float(p.units),
+                    'nav': float(p.nav_per_unit),
+                    'is_equity': is_equity
                 })
-
+            
+            # Prepare redemption data
+            redemption_data = []
+            for r in folio_redemptions_list:
+                scheme_name = scheme.scheme_name if scheme else r.scheme_id
+                redemption_data.append({
+                    'transaction_id': r.transaction_id,
+                    'scheme_id': r.scheme_id,
+                    'scheme_name': scheme_name,
+                    'date': r.transaction_date,
+                    'units': float(r.units),
+                    'nav': float(r.nav_per_unit),
+                    'is_equity': is_equity
+                })
+            
+            # Calculate capital gains using FIFO
+            folio_gains = calculate_capital_gains_fifo(purchase_data, redemption_data)
+            all_capital_gains.extend(folio_gains)
+        
+        # Categorize gains into short-term and long-term
+        short_term_gains = []
+        long_term_gains = []
+        short_term_total = Decimal('0')
+        long_term_total = Decimal('0')
+        
+        for gain in all_capital_gains:
+            if gain['is_long_term']:
+                long_term_gains.append(gain)
+                long_term_total += Decimal(str(gain['gain_loss']))
+            else:
+                short_term_gains.append(gain)
+                short_term_total += Decimal(str(gain['gain_loss']))
+        
+        total_taxable_gain = short_term_total + long_term_total
+        
         return {
             "message": "Capital gains report generated successfully",
             "data": {
                 "financial_year": financial_year,
                 "period": {
-                    "start_date": fy_start,
-                    "end_date": fy_end
+                    "start_date": fy_start.isoformat(),
+                    "end_date": fy_end.isoformat()
                 },
-                "capital_gains": capital_gains,
-                "total_taxable_gain": capital_gains["short_term"]["total"] + capital_gains["long_term"]["total"]
+                "capital_gains": {
+                    "short_term": {
+                        "total": float(short_term_total),
+                        "count": len(short_term_gains),
+                        "transactions": short_term_gains
+                    },
+                    "long_term": {
+                        "total": float(long_term_total),
+                        "count": len(long_term_gains),
+                        "transactions": long_term_gains
+                    }
+                },
+                "summary": {
+                    "total_short_term": float(short_term_total),
+                    "total_long_term": float(long_term_total),
+                    "total_taxable_gain": float(total_taxable_gain),
+                    "total_transactions": len(all_capital_gains)
+                },
+                "tax_implications": {
+                    "stcg_tax_rate": "As per your income tax slab",
+                    "ltcg_equity_tax_rate": "10% on gains above ₹1,00,000 (without indexation)",
+                    "ltcg_debt_tax_rate": "20% with indexation benefit",
+                    "note": "Please consult a tax advisor for accurate tax calculations"
+                }
             }
         }
-
+    
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Capital gains report error: {e}")
+        logger.error(f"Capital gains report error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate capital gains report"
+            detail=f"Failed to generate capital gains report: {str(e)}"
         )
 
 
@@ -122,13 +345,13 @@ async def get_valuation_report(
                 "folio_number": folio.folio_number,
                 "scheme_name": scheme.scheme_name,
                 "scheme_type": scheme.scheme_type.value,
-                "total_units": folio.total_units,
-                "current_nav": current_nav,
-                "total_investment": folio.total_investment,
-                "current_value": current_value,
-                "gain_loss": gain_loss,
-                "gain_loss_percentage": gain_loss_percentage,
-                "last_updated": folio.updated_at.date()
+                "total_units": float(folio.total_units),
+                "current_nav": float(current_nav),
+                "total_investment": float(folio.total_investment),
+                "current_value": float(current_value),
+                "gain_loss": float(gain_loss),
+                "gain_loss_percentage": float(gain_loss_percentage),
+                "last_updated": folio.updated_at.date().isoformat()
             })
 
             total_current_value += current_value
@@ -137,18 +360,18 @@ async def get_valuation_report(
         return {
             "message": "Valuation report generated successfully",
             "data": {
-                "report_date": date.today(),
+                "report_date": date.today().isoformat(),
                 "total_folios": len(valuation_data),
-                "total_investment": total_investment,
-                "total_current_value": total_current_value,
-                "total_gain_loss": total_current_value - total_investment,
-                "total_gain_loss_percentage": ((total_current_value - total_investment) / total_investment * 100) if total_investment > 0 else 0,
+                "total_investment": float(total_investment),
+                "total_current_value": float(total_current_value),
+                "total_gain_loss": float(total_current_value - total_investment),
+                "total_gain_loss_percentage": float(((total_current_value - total_investment) / total_investment * 100) if total_investment > 0 else 0),
                 "folio_valuations": valuation_data
             }
         }
 
     except Exception as e:
-        logger.error(f"Valuation report error: {e}")
+        logger.error(f"Valuation report error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate valuation report"
@@ -251,163 +474,8 @@ async def download_cas(
         }
 
     except Exception as e:
-        logger.error(f"CAS generation error: {e}")
+        logger.error(f"CAS generation error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate CAS"
-        )
-
-
-@router.get("/transaction-summary")
-async def get_transaction_summary(
-    from_date: date = None,
-    to_date: date = None,
-    current_user: User = Depends(get_current_investor),
-    db: Session = Depends(get_db)
-):
-    """Get transaction summary report"""
-    try:
-        # Set default date range (last 30 days)
-        if not from_date:
-            from_date = date.today() - timedelta(days=30)
-        if not to_date:
-            to_date = date.today()
-
-        # Get transaction summary
-        transactions = db.query(Transaction).filter(
-            Transaction.investor_id == current_user.investor_id,
-            Transaction.transaction_date >= from_date,
-            Transaction.transaction_date <= to_date,
-            Transaction.status == TransactionStatus.completed
-        ).all()
-
-        # Calculate summary statistics
-        summary = {
-            "period": {
-                "from_date": from_date,
-                "to_date": to_date
-            },
-            "transaction_counts": {
-                "total": len(transactions),
-                "purchase": 0,
-                "redemption": 0,
-                "sip": 0,
-                "switch": 0
-            },
-            "amounts": {
-                "total_invested": 0,
-                "total_redeemed": 0,
-                "net_investment": 0
-            },
-            "schemes_involved": set()
-        }
-
-        for txn in transactions:
-            txn_type = txn.transaction_type.value
-
-            if txn_type in ['fresh_purchase', 'additional_purchase']:
-                summary["transaction_counts"]["purchase"] += 1
-                summary["amounts"]["total_invested"] += txn.amount
-            elif txn_type == 'redemption':
-                summary["transaction_counts"]["redemption"] += 1
-                summary["amounts"]["total_redeemed"] += txn.amount
-            elif txn_type == 'sip':
-                summary["transaction_counts"]["sip"] += 1
-                summary["amounts"]["total_invested"] += txn.amount
-            elif txn_type in ['switch_redemption', 'switch_purchase']:
-                summary["transaction_counts"]["switch"] += 1
-
-            summary["schemes_involved"].add(txn.scheme_id)
-
-        summary["amounts"]["net_investment"] = summary["amounts"]["total_invested"] - summary["amounts"]["total_redeemed"]
-        summary["schemes_involved"] = len(summary["schemes_involved"])
-
-        return {
-            "message": "Transaction summary generated successfully",
-            "data": summary
-        }
-
-    except Exception as e:
-        logger.error(f"Transaction summary error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate transaction summary"
-        )
-
-
-@router.get("/folio-summary/{folio_number}")
-async def get_folio_summary_report(
-    folio_number: str,
-    current_user: User = Depends(get_current_investor),
-    db: Session = Depends(get_db)
-):
-    """Get detailed folio summary report"""
-    try:
-        # Get folio
-        folio = db.query(Folio).filter(Folio.folio_number == folio_number).first()
-
-        if not folio:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Folio not found"
-            )
-
-        if folio.investor_id != current_user.investor_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to this folio"
-            )
-
-        # Get scheme details
-        scheme = db.query(Scheme).filter(Scheme.scheme_id == folio.scheme_id).first()
-
-        # Get transaction history for this folio
-        transactions = db.query(Transaction).filter(
-            Transaction.folio_number == folio_number,
-            Transaction.status == TransactionStatus.completed
-        ).order_by(Transaction.transaction_date.desc()).all()
-
-        # Calculate performance metrics
-        total_invested = sum(t.amount for t in transactions if t.is_debit_transaction())
-        total_redeemed = sum(t.amount for t in transactions if t.is_credit_transaction())
-        net_investment = total_invested - total_redeemed
-
-        return {
-            "message": "Folio summary generated successfully",
-            "data": {
-                "folio_info": {
-                    "folio_number": folio.folio_number,
-                    "scheme_name": scheme.scheme_name if scheme else "",
-                    "scheme_type": scheme.scheme_type.value if scheme else "",
-                    "status": folio.status.value,
-                    "created_date": folio.created_at.date()
-                },
-                "holdings": {
-                    "total_units": folio.total_units,
-                    "current_nav": folio.current_nav,
-                    "current_value": folio.total_value,
-                    "total_investment": folio.total_investment,
-                    "average_cost_per_unit": folio.average_cost_per_unit,
-                    "gain_loss": folio.unrealized_gain_loss,
-                    "gain_loss_percentage": folio.gain_loss_percentage
-                },
-                "transaction_summary": {
-                    "total_transactions": len(transactions),
-                    "total_invested": total_invested,
-                    "total_redeemed": total_redeemed,
-                    "net_investment": net_investment,
-                    "first_transaction": transactions[-1].transaction_date if transactions else None,
-                    "last_transaction": transactions[0].transaction_date if transactions else None
-                },
-                "recent_transactions": transactions[:10]  # Last 10 transactions
-            }
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Folio summary error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate folio summary"
         )

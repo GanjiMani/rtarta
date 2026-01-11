@@ -19,7 +19,7 @@ from app.models.mandate import (
     SIPRegistration, SWPRegistration, STPRegistration,
     SIPFrequency, SIPStatus, MandateType
 )
-from app.models.unclaimed import UnclaimedAmount, UnclaimedStatus
+from app.models.unclaimed import UnclaimedAmount
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class TransactionService:
         next_id = (result or 0) + 1
         return f"F{next_id:03d}"
 
-    def get_or_create_folio(self, investor_id: str, scheme_id: str) -> Folio:
+    def get_or_create_folio(self, investor_id: str, scheme_id: str, lock: bool = False) -> Folio:
         """Get existing folio or create new one for investor-scheme combination"""
         # Handle both S001 and SCH001 format
         actual_scheme_id = None
@@ -62,11 +62,16 @@ class TransactionService:
             raise ValueError(f"Scheme {scheme_id} not found")
         
         # Check if folio exists
-        folio = self.db.query(Folio).filter(
+        query = self.db.query(Folio).filter(
             Folio.investor_id == investor_id,
             Folio.scheme_id == actual_scheme_id,
             Folio.amc_id == scheme.amc_id
-        ).first()
+        )
+        
+        if lock:
+            query = query.with_for_update()
+            
+        folio = query.first()
 
         if not folio:
             # Create new folio
@@ -123,7 +128,7 @@ class TransactionService:
             raise ValueError(f"Amount must be at least {scheme.minimum_investment}")
 
         # Get or create folio
-        folio = self.get_or_create_folio(investor_id, actual_scheme_id)
+        folio = self.get_or_create_folio(investor_id, actual_scheme_id, lock=True)
 
         # Calculate units
         nav = scheme.current_nav
@@ -174,7 +179,8 @@ class TransactionService:
         all_units: bool = False
     ) -> Transaction:
         """Process redemption transaction"""
-        folio = self.db.query(Folio).filter(Folio.folio_number == folio_number).first()
+        # Lock the folio row to prevent concurrent modifications (ACID)
+        folio = self.db.query(Folio).filter(Folio.folio_number == folio_number).with_for_update().first()
         if not folio:
             raise ValueError(f"Folio {folio_number} not found")
 
@@ -595,8 +601,13 @@ class TransactionService:
         }
 
     def get_transaction_history(self, investor_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get transaction history for investor"""
-        transactions = self.db.query(Transaction).filter(
+        """Get transaction history for investor with scheme details"""
+        # Optimize with eager loading
+        from sqlalchemy.orm import joinedload
+        
+        transactions = self.db.query(Transaction).options(
+            joinedload(Transaction.scheme)
+        ).filter(
             Transaction.investor_id == investor_id
         ).order_by(Transaction.transaction_date.desc()).limit(limit).all()
 
@@ -606,6 +617,7 @@ class TransactionService:
                 "transaction_id": txn.transaction_id,
                 "transaction_type": txn.transaction_type.value if hasattr(txn.transaction_type, 'value') else str(txn.transaction_type),
                 "scheme_id": txn.scheme_id,
+                "scheme_name": txn.scheme.scheme_name if txn.scheme else None,
                 "folio_number": txn.folio_number,
                 "amount": float(txn.amount),
                 "units": float(txn.units) if txn.units else 0.0,
@@ -870,8 +882,8 @@ class TransactionService:
         if unclaimed.investor_id != investor_id:
             raise ValueError("Unclaimed amount does not belong to investor")
             
-        if unclaimed.status != UnclaimedStatus.pending:
-            raise ValueError(f"Unclaimed amount is already {unclaimed.status.value}")
+        if unclaimed.claimed:
+            raise ValueError(f"Unclaimed amount is already claimed")
             
         # Calculate total payout
         total_payout = unclaimed.total_amount
@@ -906,10 +918,9 @@ class TransactionService:
         self.db.add(transaction)
         
         # Update unclaimed status
-        unclaimed.status = UnclaimedStatus.claimed
-        unclaimed.claimed = True # For backward compatibility
+        unclaimed.claimed = True
         unclaimed.claimed_date = date.today()
-        unclaimed.settlement_transaction_id = transaction_id
+        unclaimed.claim_reference = f"CLM{transaction_id}"
         
         self.db.flush()
         return transaction
