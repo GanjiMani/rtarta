@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from . import (
     auth, profile, transactions, folios, mandates, idcw,
     complaints, notifications, disclosures, reports, service_requests,
-    support, unclaimed, clients
+    support, unclaimed, agents
 )
 
 # Create main router
@@ -22,6 +22,6 @@ router.include_router(reports.router, prefix="/reports", tags=["investor-reports
 router.include_router(service_requests.router, prefix="/service-requests", tags=["investor-service-requests"])
 router.include_router(support.router, prefix="/support", tags=["investor-support"])
 router.include_router(unclaimed.router, prefix="/unclaimed", tags=["investor-unclaimed"])
-router.include_router(clients.router, prefix="/clients", tags=["investor-clients"])
+router.include_router(agents.router, prefix="/agents", tags=["investor-agents"])
 
 __all__ = ["router"]

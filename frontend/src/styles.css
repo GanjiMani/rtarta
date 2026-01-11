@@ -3,8 +3,33 @@
 @tailwind utilities;
 
 /* Custom utilities */
-:root{--card-shadow: 0 6px 18px rgba(2,6,23,0.08)}
-body { @apply bg-gray-50 text-gray-900; }
+:root {
+  --card-shadow: 0 6px 18px rgba(2,6,23,0.08);
+  font-family: 'Inter', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', sans-serif;
+}
+
+body { 
+  @apply bg-[#FBFBFA] text-slate-900 antialiased; 
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 20px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 .app-container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
 .header-brand { @apply text-2xl font-bold text-primary; }
 .card { @apply bg-white rounded-2xl p-6 shadow-[var(--card-shadow)]; }

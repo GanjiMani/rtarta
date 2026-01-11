@@ -35,7 +35,7 @@ import AssetAllocation from "./pages/investor/AssetAllocation";
 import InvestorComplaints from "./pages/investor/InvestorComplaints";
 import DocumentManager from "./pages/investor/DocumentManager";
 import RegulatoryDisclosure from "./pages/investor/RegulatoryDisclosure";
-import ClientList from "./pages/investor/ClientList";
+import MyAgents from "./pages/investor/MyAgents";
 import ForgotPassword from './pages/investor/ForgotPassword';
 import VerifyOTP from './pages/investor/VerifyOTP';
 import ResetPassword from './pages/investor/ResetPassword';
@@ -137,7 +137,7 @@ export default function App() {
         <Route path="complaints" element={<ProtectedRoute><InvestorComplaints /></ProtectedRoute>} />
         <Route path="profile/documents" element={<ProtectedRoute><DocumentManager /></ProtectedRoute>} />
         <Route path="disclosures" element={<RegulatoryDisclosure />} />
-        <Route path="clients" element={<ProtectedRoute><ClientList /></ProtectedRoute>} />
+        <Route path="agents" element={<ProtectedRoute><MyAgents /></ProtectedRoute>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/verify-otp" element={<VerifyOTP />} />
         <Route path="/reset-password" element={<ResetPassword />} />

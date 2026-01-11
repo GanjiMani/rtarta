@@ -36,7 +36,7 @@ class User(BaseModel):
     # Role-specific IDs
     investor_id = Column(String(10), ForeignKey("investor_master.investor_id"), unique=True)
     amc_id = Column(String(10), ForeignKey("amc_master.amc_id"))
-    distributor_id = Column(String(10))  # Will be linked to distributor table later
+    distributor_id = Column(String(15), ForeignKey("distributor_master.distributor_id"))
 
     # Account Status
     is_active = Column(Boolean, default=True, nullable=False)
@@ -63,6 +63,7 @@ class User(BaseModel):
     # Relationships
     investor = relationship("Investor", back_populates="user", uselist=False)
     amc = relationship("AMC", back_populates="users")
+    distributor = relationship("Distributor", back_populates="users")
 
     # Password context for hashing
     _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

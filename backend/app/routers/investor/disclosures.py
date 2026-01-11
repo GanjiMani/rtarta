@@ -1,35 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
 from app.db.session import get_db
 from app.core.jwt import get_current_investor
 from app.models.user import User
+from app.services.disclosure_service import DisclosureService
+from app.schemas.disclosure import DisclosureListResponse
 import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["Disclosures"])
 
 
-@router.get("/")
+@router.get("/", response_model=DisclosureListResponse)
 async def get_disclosures(
-    current_user: User = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
-    """Get regulatory disclosures"""
+    """Get active regulatory disclosures"""
     try:
-        # Placeholder implementation
-        disclosures = [
-            {
-                "id": 1,
-                "title": "SEBI Regulations",
-                "content": "All mutual fund investments are subject to market risks...",
-                "date": "2024-01-01",
-                "category": "Regulatory"
-            }
-        ]
+        service = DisclosureService(db)
+        disclosures = service.get_active_disclosures()
         
         return {
+            "status": "success",
             "message": "Disclosures retrieved successfully",
             "data": disclosures
         }

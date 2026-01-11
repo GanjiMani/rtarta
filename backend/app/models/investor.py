@@ -109,6 +109,7 @@ class Investor(BaseModel):
     password_reset_expiry = Column(Date)
 
     # Relationships
+    agents = relationship("Distributor", secondary="investor_agents", back_populates="investors")
     folios = relationship("Folio", back_populates="investor", cascade="all, delete-orphan")
     bank_accounts = relationship("BankAccount", back_populates="investor", cascade="all, delete-orphan")
     nominees = relationship("Nominee", back_populates="investor_rel", cascade="all, delete-orphan")
@@ -121,6 +122,8 @@ class Investor(BaseModel):
     unclaimed_amounts = relationship("UnclaimedAmount", back_populates="investor", cascade="all, delete-orphan")
     service_requests = relationship("ServiceRequest", back_populates="investor", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="investor", cascade="all, delete-orphan")
+    complaints = relationship("Complaint", back_populates="investor", cascade="all, delete-orphan")
+    support_tickets = relationship("SupportTicket", back_populates="investor", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Investor(id={self.id}, investor_id={self.investor_id}, name={self.full_name}, kyc_status={self.kyc_status.value})>"

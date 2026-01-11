@@ -1,46 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
-from pydantic import BaseModel, Field
+from typing import Dict, Any
 from app.db.session import get_db
 from app.core.jwt import get_current_investor
 from app.models.user import User
+from app.services.complaint_service import ComplaintService
+from app.schemas.complaint import ComplaintCreate, ComplaintListResponse, SingleComplaintResponse
 import logging
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["Complaints"])
 
 
-class ComplaintCreate(BaseModel):
-    subject: str = Field(..., min_length=1, max_length=255)
-    description: str = Field(..., min_length=1)
-
-
-@router.get("/")
+@router.get("/", response_model=ComplaintListResponse)
 async def get_complaints(
-    current_user: User = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """Get all complaints for the investor"""
     try:
-        if not current_user.investor_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User does not have an associated investor profile"
-            )
-        
-        # Placeholder implementation
-        complaints = []
+        service = ComplaintService(db)
+        complaints = service.get_investor_complaints(current_investor.investor_id)
         
         return {
+            "status": "success",
             "message": "Complaints retrieved successfully",
             "data": complaints
         }
-        
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Get complaints error: {e}", exc_info=True)
         raise HTTPException(
@@ -49,42 +36,59 @@ async def get_complaints(
         )
 
 
-@router.post("/")
+@router.post("/", response_model=SingleComplaintResponse)
 async def create_complaint(
     complaint_data: ComplaintCreate,
-    current_user: User = Depends(get_current_investor),
+    current_investor: User = Depends(get_current_investor),
     db: Session = Depends(get_db)
 ):
     """Create a new complaint"""
     try:
-        if not current_user.investor_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User does not have an associated investor profile"
-            )
-        
-        # Placeholder implementation
-        complaint = {
-            "id": 1,
-            "subject": complaint_data.subject,
-            "description": complaint_data.description,
-            "status": "Open",
-            "created_at": datetime.now().isoformat(),
-            "investor_id": current_user.investor_id
-        }
+        service = ComplaintService(db)
+        complaint = service.create_complaint(current_investor.investor_id, complaint_data)
         
         return {
-            "message": "Complaint created successfully",
+            "status": "success",
+            "message": "Complaint submitted successfully",
             "data": complaint
         }
-        
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Create complaint error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create complaint"
+            detail="Failed to submit complaint"
+        )
+
+
+@router.get("/{complaint_id}", response_model=SingleComplaintResponse)
+async def get_complaint_details(
+    complaint_id: int,
+    current_investor: User = Depends(get_current_investor),
+    db: Session = Depends(get_db)
+):
+    """Get specific complaint details"""
+    try:
+        service = ComplaintService(db)
+        complaint = service.get_complaint_details(complaint_id, current_investor.investor_id)
+        
+        if not complaint:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Complaint not found"
+            )
+            
+        return {
+            "status": "success",
+            "message": "Complaint details retrieved successfully",
+            "data": complaint
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get complaint details error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve complaint details"
         )
 
 

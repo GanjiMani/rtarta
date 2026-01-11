@@ -30,18 +30,17 @@ export default function InvestorLayout() {
       {/* Mobile Sidebar */}
       {user && (
         <div
-          className={`fixed inset-y-0 left-0 w-64 bg-white shadow-md p-4 z-50 transform transition-transform duration-300 lg:hidden ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`fixed inset-y-0 left-0 w-72 bg-[#0F172A] shadow-md z-50 transform transition-transform duration-300 lg:hidden ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           <Sidebar />
         </div>
       )}
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col ${user ? "lg:ml-64" : ""}`}>
+      <div className={`flex-1 flex flex-col ${user ? "lg:ml-72" : ""}`}>
         <Header toggleSidebar={toggleSidebar} />
-        <main className="p-6 overflow-auto flex-1">
+        <main className="p-8 overflow-auto flex-1 bg-[#FBFBFA]">
           <Outlet />
         </main>
       </div>
