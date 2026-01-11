@@ -41,7 +41,11 @@ class InvestorCreate(InvestorBase):
 
 
 class InvestorUpdate(BaseModel):
+    pan_number: Optional[str] = Field(None, pattern=r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$')
     full_name: Optional[str] = Field(None, min_length=2, max_length=255)
+    date_of_birth: Optional[date] = None
+    gender: Optional[Gender] = None
+    email: Optional[EmailStr] = None
     mobile_number: Optional[str] = Field(None, pattern=r'^\+?[0-9]{10,15}$')
     alternate_mobile: Optional[str] = Field(None, pattern=r'^\+?[0-9]{10,15}$')
     address_line1: Optional[str] = Field(None, min_length=5, max_length=500)
@@ -108,8 +112,13 @@ class BankAccountCreate(BankAccountBase):
 
 
 class BankAccountUpdate(BaseModel):
+    account_number: Optional[str] = Field(None, min_length=8, max_length=20)
     account_holder_name: Optional[str] = Field(None, min_length=2, max_length=255)
+    bank_name: Optional[str] = Field(None, min_length=2, max_length=255)
     branch_name: Optional[str] = Field(None, max_length=255)
+    ifsc_code: Optional[str] = Field(None, pattern=r'^[A-Z]{4}0[A-Z0-9]{6}$')
+    micr_code: Optional[str] = Field(None, pattern=r'^\d{9}$')
+    account_type: Optional[str] = None
     bank_address: Optional[str] = Field(None, max_length=500)
     city: Optional[str] = Field(None, max_length=100)
     state: Optional[str] = Field(None, max_length=100)
@@ -117,9 +126,10 @@ class BankAccountUpdate(BaseModel):
 
 
 class MandateRegistration(BaseModel):
-    bank_account_id: int
+    bank_account_id: Optional[int] = None
+    scheme_id: Optional[str] = None  # Alternative to bank_account_id
     mandate_type: str  # upi, ecs, net_banking, debit_mandate
-    mandate_amount_limit: Decimal = Field(..., ge=0)
+    mandate_amount_limit: Decimal = Field(default=Decimal('1000000'), ge=0)  # Default limit
     mandate_expiry_date: Optional[date] = None
     upi_id: Optional[str] = None
 

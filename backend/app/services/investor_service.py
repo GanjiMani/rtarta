@@ -115,13 +115,37 @@ class InvestorService:
 
     def update_investor_profile(self, investor_id: str, update_data: Dict[str, Any]) -> Investor:
         """Update investor profile"""
+        from app.models.investor import Gender, MaritalStatus, Occupation, IncomeSlab
+        
         investor = self.db.query(Investor).filter(Investor.investor_id == investor_id).first()
         if not investor:
             raise ValueError(f"Investor {investor_id} not found")
 
         for key, value in update_data.items():
             if hasattr(investor, key) and value is not None:
-                setattr(investor, key, value)
+                # Handle enum conversions
+                if key == 'gender' and isinstance(value, str):
+                    try:
+                        setattr(investor, key, Gender[value.lower()])
+                    except KeyError:
+                        raise ValueError(f"Invalid gender value: {value}")
+                elif key == 'marital_status' and isinstance(value, str):
+                    try:
+                        setattr(investor, key, MaritalStatus[value.lower()])
+                    except KeyError:
+                        raise ValueError(f"Invalid marital_status value: {value}")
+                elif key == 'occupation' and isinstance(value, str):
+                    try:
+                        setattr(investor, key, Occupation[value.lower()])
+                    except KeyError:
+                        raise ValueError(f"Invalid occupation value: {value}")
+                elif key == 'income_slab' and isinstance(value, str):
+                    try:
+                        setattr(investor, key, IncomeSlab[value.lower()])
+                    except KeyError:
+                        raise ValueError(f"Invalid income_slab value: {value}")
+                else:
+                    setattr(investor, key, value)
 
         self.db.flush()
         return investor

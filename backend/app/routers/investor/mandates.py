@@ -19,7 +19,8 @@ def get_bank_mandates(
     """List all bank mandates (alias for compatibility)"""
     from app.models.mandate import BankAccount
     banks = db.query(BankAccount).filter(
-        BankAccount.investor_id == current_investor.investor_id
+        BankAccount.investor_id == current_investor.investor_id,
+        BankAccount.mandate_type.isnot(None)  # Only return bank accounts with mandates
     ).all()
     
     return {
@@ -47,6 +48,24 @@ def register_bank_mandate_alias(
     db: Session = Depends(get_db)
 ):
     """Alias for registering a bank mandate via /bank"""
+    from app.models.mandate import BankAccount
+    
+    # If bank_account_id is not provided, try to find primary bank account
+    if not registration.bank_account_id:
+        primary_bank = db.query(BankAccount).filter(
+            BankAccount.investor_id == current_investor.investor_id,
+            BankAccount.is_primary == True
+        ).first()
+        
+        if not primary_bank:
+            raise HTTPException(
+                status_code=400,
+                detail="No bank account found. Please add a bank account first or provide bank_account_id"
+            )
+        
+        # Create a new registration object with the bank_account_id
+        registration = registration.model_copy(update={"bank_account_id": primary_bank.id})
+    
     return register_mandate(registration, current_investor, db)
 
 
@@ -72,7 +91,7 @@ def delete_bank_mandate_alias(
     bank_account.mandate_umrn = None
     bank_account.mandate_amount_limit = None
     
-    db.flush()
+    db.commit()
     return {"message": "Mandate revoked successfully"}
 
 
@@ -86,6 +105,8 @@ def register_mandate(
     service = MandateService(db)
     try:
         bank_account = service.register_mandate(current_investor.investor_id, registration)
+        db.commit()
+        db.refresh(bank_account)
         return {
             "message": "Mandate registration initiated",
             "bank_account_id": bank_account.id,
@@ -93,8 +114,10 @@ def register_mandate(
             "status": bank_account.mandate_status.value
         }
     except ValueError as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        db.rollback()
         logger.error(f"Error registering mandate: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
@@ -121,12 +144,15 @@ def verify_mandate(
     service = MandateService(db)
     try:
         bank_account = service.verify_mandate(current_investor.investor_id, bank_account_id)
+        db.commit()
+        db.refresh(bank_account)
         return {
             "message": "Mandate verified and activated",
             "status": bank_account.mandate_status.value,
             "mandate_id": bank_account.mandate_id
         }
     except ValueError as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/active-eligible")

@@ -26,6 +26,7 @@ import CapitalGainsReport from "./pages/investor/CapitalGainsReport";
 import ValuationReport from "./pages/investor/ValuationReport";
 import CASDownload from "./pages/investor/CASDownload";
 import BankMandates from "./pages/investor/MandateManagement";
+import BankAccounts from "./pages/investor/BankAccounts";
 import NomineeManagement from "./pages/investor/NomineeManagement";
 import SecuritySettings from "./pages/investor/SecuritySettings";
 import ServiceRequests from "./pages/investor/ServiceRequests";
@@ -127,7 +128,7 @@ export default function App() {
         <Route path="reports/capital-gains" element={<ProtectedRoute><CapitalGainsReport /></ProtectedRoute>} />
         <Route path="reports/valuation" element={<ProtectedRoute><ValuationReport /></ProtectedRoute>} />
         <Route path="reports/cas" element={<ProtectedRoute><CASDownload /></ProtectedRoute>} />
-        <Route path="profile/banks" element={<ProtectedRoute><BankMandates /></ProtectedRoute>} />
+        <Route path="profile/banks" element={<ProtectedRoute><BankAccounts /></ProtectedRoute>} />
         <Route path="profile/nominees" element={<ProtectedRoute><NomineeManagement /></ProtectedRoute>} />
         <Route path="profile/security" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
         <Route path="mandates" element={<ProtectedRoute><BankMandates /></ProtectedRoute>} />

@@ -392,8 +392,7 @@ class TransactionService:
             end_date=end_date,
             number_of_installments=installments,
             status=SIPStatus.active,
-            next_installment_date=next_installment_date,
-            mandate_type=MandateType.net_banking
+            next_installment_date=next_installment_date
         )
         self.db.add(swp_reg)
         self.db.flush()
@@ -473,8 +472,7 @@ class TransactionService:
             end_date=end_date,
             number_of_installments=installments,
             status=SIPStatus.active,
-            next_installment_date=next_installment_date,
-            mandate_type=MandateType.net_banking
+            next_installment_date=next_installment_date
         )
         self.db.add(stp_reg)
         self.db.flush()

@@ -25,16 +25,21 @@ class MandateService:
         if not bank_account:
             raise ValueError("Bank account not found or does not belong to investor")
 
-        # Update mandate fields
-        bank_account.mandate_type = MandateType[registration_data.mandate_type.lower()]
+        # Update mandate fields - handle case variations and normalize mandate type
+        mandate_type_str = registration_data.mandate_type.lower().replace(" ", "_").replace("netbanking", "net_banking")
+        try:
+            bank_account.mandate_type = MandateType[mandate_type_str]
+        except KeyError:
+            raise ValueError(f"Invalid mandate type: {registration_data.mandate_type}. Valid types are: UPI, ECS, NetBanking, debit_mandate")
         bank_account.mandate_amount_limit = registration_data.mandate_amount_limit
         bank_account.mandate_expiry_date = registration_data.mandate_expiry_date
         
         if registration_data.upi_id:
             bank_account.upi_id = registration_data.upi_id
 
-        # Initialize registration status
-        bank_account.mandate_status = MandateStatus.inactive
+        # Initialize registration status - Set to active for demo/mock system
+        # In production, this would remain inactive until verified by bank
+        bank_account.mandate_status = MandateStatus.active
         bank_account.mandate_registration_date = date.today()
         
         # In a real system, this would trigger an external API call to the NPCI/Bank

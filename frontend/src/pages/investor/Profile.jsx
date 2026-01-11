@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../services/AuthContext";
-import { User, CreditCard, Users, FileText, CheckCircle, X, Edit2, Trash2, Plus, Download, Upload, AlertCircle } from "lucide-react";
+import { User, CreditCard, Users, FileText, CheckCircle, X, Edit2, Trash2, Plus, Download, Upload, AlertCircle, ShieldCheck } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
