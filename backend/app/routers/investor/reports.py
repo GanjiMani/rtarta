@@ -306,10 +306,13 @@ async def get_capital_gains_report(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Capital gains report error: {e}", exc_info=True)
+        import traceback
+        error_msg = f"Type: {type(e).__name__}, Message: {str(e)}"
+        logger.error(f"Capital gains report error: {error_msg}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate capital gains report: {str(e)}"
+            detail=f"Failed to generate capital gains report: {error_msg}"
         )
 
 
