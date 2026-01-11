@@ -36,6 +36,7 @@ import InvestorComplaints from "./pages/investor/InvestorComplaints";
 import DocumentManager from "./pages/investor/DocumentManager";
 import RegulatoryDisclosure from "./pages/investor/RegulatoryDisclosure";
 import MyAgents from "./pages/investor/MyAgents";
+import Settings from "./pages/investor/Settings";
 import ForgotPassword from './pages/investor/ForgotPassword';
 import VerifyOTP from './pages/investor/VerifyOTP';
 import ResetPassword from './pages/investor/ResetPassword';
@@ -138,6 +139,7 @@ export default function App() {
         <Route path="profile/documents" element={<ProtectedRoute><DocumentManager /></ProtectedRoute>} />
         <Route path="disclosures" element={<RegulatoryDisclosure />} />
         <Route path="agents" element={<ProtectedRoute><MyAgents /></ProtectedRoute>} />
+        <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/verify-otp" element={<VerifyOTP />} />
         <Route path="/reset-password" element={<ResetPassword />} />

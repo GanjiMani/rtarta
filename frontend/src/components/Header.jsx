@@ -63,8 +63,8 @@ export default function Header({ toggleSidebar }) {
 
   return (
     <header className={`sticky top-0 z-40 transition-all duration-500 ${scrolled
-      ? "bg-white/80 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.04)] py-2"
-      : "bg-[#FBFBFA] py-4"
+      ? "bg-white/80 backdrop-blur-xl shadow-[0_10px_40px_rgba(37,99,235,0.03)] py-1"
+      : "bg-white py-3"
       } border-b border-slate-100`}>
       <div className="max-w-[1600px] mx-auto px-8 flex items-center justify-between">
 
@@ -168,19 +168,13 @@ export default function Header({ toggleSidebar }) {
                         <div className="p-2.5 rounded-xl bg-slate-100 group-hover/item:bg-blue-100 transition-colors">
                           <User size={16} />
                         </div>
-                        Core Profile
-                      </Link>
-                      <Link to="/profile/security" className="flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 text-slate-600 hover:text-blue-600 font-bold text-sm transition-all group/item">
-                        <div className="p-2.5 rounded-xl bg-slate-100 group-hover/item:bg-blue-100 transition-colors">
-                          <Shield size={16} />
-                        </div>
-                        Security Vault
+                        Identity Profile
                       </Link>
                       <Link to="/settings" className="flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 text-slate-600 hover:text-blue-600 font-bold text-sm transition-all group/item">
                         <div className="p-2.5 rounded-xl bg-slate-100 group-hover/item:bg-blue-100 transition-colors">
-                          <Settings size={16} />
+                          <Shield size={16} />
                         </div>
-                        Preferences
+                        Nexus Settings
                       </Link>
                     </div>
 

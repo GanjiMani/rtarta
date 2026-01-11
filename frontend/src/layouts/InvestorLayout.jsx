@@ -30,7 +30,7 @@ export default function InvestorLayout() {
       {/* Mobile Sidebar */}
       {user && (
         <div
-          className={`fixed inset-y-0 left-0 w-72 bg-[#0F172A] shadow-md z-50 transform transition-transform duration-300 lg:hidden ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          className={`fixed inset-y-0 left-0 w-72 bg-white shadow-2xl z-50 transform transition-transform duration-300 lg:hidden ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
             }`}
         >
           <Sidebar />
