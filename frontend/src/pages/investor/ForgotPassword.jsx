@@ -6,8 +6,6 @@ import {
   ArrowRight,
   CheckCircle,
   AlertCircle,
-  Globe,
-  Lock,
   ChevronLeft
 } from "lucide-react";
 
@@ -25,7 +23,7 @@ const InputField = ({ label, name, type = "text", icon: Icon, placeholder, value
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors
+        className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-colors outline-none
           ${error ? "border-red-500 bg-red-50" : "border-gray-300"}`}
         {...props}
       />
@@ -54,7 +52,6 @@ export default function ForgotPassword() {
 
     setIsSubmitting(true);
     try {
-      // Assuming backend expects "email"
       const res = await fetchPublic("/api/investor/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({ email: emailOrPan }),
@@ -68,7 +65,6 @@ export default function ForgotPassword() {
       const data = await res.json();
       setMessage(data.message || "OTP sent successfully. Please check your email.");
 
-      // Navigate to Verify OTP page after short delay
       setTimeout(() => {
         navigate("/verify-otp", { state: { email: emailOrPan } });
       }, 1500);
@@ -81,93 +77,49 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex overflow-hidden min-h-[500px]">
-
-        {/* Left Side - Branding */}
-        <div className="hidden md:flex w-1/2 bg-blue-600 p-8 flex-col justify-between text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <h1 className="text-3xl font-bold mb-2">Account Recovery</h1>
-            <p className="text-blue-100">Don't worry, we'll help you get back in.</p>
-          </div>
-
-          <div className="relative z-10 space-y-6">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-blue-500/30 rounded-lg backdrop-blur-sm">
-                <Lock className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Secure Process</h3>
-                <p className="text-xs text-blue-100">Identity verification required</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-blue-500/30 rounded-lg backdrop-blur-sm">
-                <Globe className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Support Available</h3>
-                <p className="text-xs text-blue-100">Contact us if you need help</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative z-10 text-xs text-blue-200">
-            © 2024 RTA Management. All rights reserved.
-          </div>
-
-          {/* Decorative Circles */}
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-blue-500 rounded-full opacity-20 filter blur-2xl"></div>
-          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-purple-500 rounded-full opacity-20 filter blur-2xl"></div>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-md p-8 border border-gray-100 shadow-sm rounded-2xl">
+        <div className="mb-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900">Forgot Password</h2>
+          <p className="text-sm text-gray-500 mt-2">Enter your email to receive a verification code</p>
         </div>
 
-        {/* Right Side - Form */}
-        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
+        {!message ? (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <InputField
+              label="Email Address"
+              name="emailOrPan"
+              icon={Mail}
+              value={emailOrPan}
+              onChange={(e) => setEmailOrPan(e.target.value)}
+              error={error}
+              placeholder="name@example.com"
+            />
 
-          <div className="mb-8 text-center md:text-left">
-            <h2 className="text-2xl font-bold text-gray-800">Forgot Password?</h2>
-            <p className="text-sm text-gray-500 mt-1">Enter your details to receive an OTP</p>
-          </div>
-
-          {!message ? (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <InputField
-                label="Email"
-                name="emailOrPan"
-                icon={Mail}
-                value={emailOrPan}
-                onChange={(e) => setEmailOrPan(e.target.value)}
-                error={error}
-                placeholder="Enter your registered Email"
-              />
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full flex justify-center items-center py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? "Sending..." : "Send OTP"}
-                {!isSubmitting && <ArrowRight className="w-4 h-4 ml-2" />}
-              </button>
-            </form>
-          ) : (
-            <div className="text-center p-6 bg-green-50 rounded-xl border border-green-100">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Check your email</h3>
-              <p className="text-gray-600 mb-6">{message}</p>
-              <p className="text-xs text-blue-500">Redirecting to verification page...</p>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full flex justify-center items-center py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Sending..." : "Send OTP"}
+              {!isSubmitting && <ArrowRight className="w-4 h-4 ml-2" />}
+            </button>
+          </form>
+        ) : (
+          <div className="text-center p-6 bg-green-50 rounded-xl border border-green-100">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
-          )}
-
-          <div className="mt-8 text-center">
-            <Link to="/login" className="inline-flex items-center text-sm text-gray-600 hover:text-blue-600 font-medium transition-colors">
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back to Login
-            </Link>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Check your email</h3>
+            <p className="text-gray-600 mb-6">{message}</p>
           </div>
+        )}
 
+        <div className="mt-8 text-center">
+          <Link to="/login" className="inline-flex items-center text-sm text-gray-600 hover:text-blue-600 font-medium transition-colors">
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Back to Login
+          </Link>
         </div>
       </div>
     </div>

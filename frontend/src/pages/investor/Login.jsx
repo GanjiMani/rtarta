@@ -32,7 +32,7 @@ const InputField = ({ label, name, type = "text", icon: Icon, placeholder, optio
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className={`w-full pl-10 ${isPassword ? 'pr-10' : 'pr-4'} py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors
+          className={`w-full pl-10 ${isPassword ? 'pr-10' : 'pr-4'} py-2 border rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-colors outline-none
             ${error ? "border-red-500 bg-red-50" : "border-gray-300"}`}
           {...props}
         />
@@ -115,110 +115,67 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex overflow-hidden min-h-[500px]">
-
-        {/* Left Side - Branding */}
-        <div className="hidden md:flex w-1/2 bg-blue-600 p-8 flex-col justify-between text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
-            <p className="text-blue-100">Access your portfolio and track your investments.</p>
-          </div>
-
-          <div className="relative z-10 space-y-6">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-blue-500/30 rounded-lg backdrop-blur-sm">
-                <CheckCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Secure Login</h3>
-                <p className="text-xs text-blue-100">Two-factor authentication enabled</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-blue-500/30 rounded-lg backdrop-blur-sm">
-                <Globe className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold">24/7 Access</h3>
-                <p className="text-xs text-blue-100">Monitor your wealth anytime</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative z-10 text-xs text-blue-200">
-            © 2024 RTA Management. All rights reserved.
-          </div>
-
-          {/* Decorative Circles */}
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-blue-500 rounded-full opacity-20 filter blur-2xl"></div>
-          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-purple-500 rounded-full opacity-20 filter blur-2xl"></div>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 font-sans">
+      <div className="bg-white rounded-3xl w-full max-w-md p-8 md:p-12 shadow-sm border border-gray-100">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-blue-600 mb-2">RTA Portal</h1>
+          <p className="text-gray-500">Welcome back! Please login to continue.</p>
         </div>
 
-        {/* Right Side - Login Form */}
-        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <InputField
+            label="Email or PAN"
+            name="userId"
+            icon={User}
+            value={formData.userId}
+            onChange={handleChange}
+            error={errors.userId}
+            placeholder="Enter Email or PAN"
+          />
 
-          <div className="mb-8 text-center md:text-left">
-            <h2 className="text-2xl font-bold text-gray-800">Investor Login</h2>
-            <p className="text-sm text-gray-500 mt-1">Please enter your details to sign in</p>
-          </div>
+          <InputField
+            label="Password"
+            name="password"
+            type="password"
+            icon={Lock}
+            value={formData.password}
+            onChange={handleChange}
+            error={errors.password}
+            placeholder="Enter your password"
+          />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <InputField
-              label="Email or PAN"
-              name="userId"
-              icon={User}
-              value={formData.userId}
-              onChange={handleChange}
-              error={errors.userId}
-              placeholder="Enter Email or PAN"
-            />
-
-            <InputField
-              label="Password"
-              name="password"
-              type="password"
-              icon={Lock}
-              value={formData.password}
-              onChange={handleChange}
-              error={errors.password}
-              placeholder="Enter your password"
-            />
-
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center text-gray-600 cursor-pointer">
-                <input type="checkbox" className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                Remember Me
-              </label>
-              <Link to="/forgot-password" className="text-blue-600 font-medium hover:underline">
-                Forgot Password?
-              </Link>
-            </div>
-
-            {apiError && (
-              <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg flex items-center">
-                <AlertCircle className="w-4 h-4 mr-2" /> {apiError}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full flex justify-center items-center py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              <LogIn className="w-4 h-4 mr-2" />
-              {isSubmitting ? "Logging in..." : "Login"}
-            </button>
-          </form>
-
-          <p className="mt-8 text-sm text-center text-gray-600">
-            Don’t have an account?{" "}
-            <Link to="/register" className="text-blue-600 font-medium hover:underline">
-              Create Account
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex items-center text-gray-600 cursor-pointer">
+              <input type="checkbox" className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-600" />
+              Remember Me
+            </label>
+            <Link to="/forgot-password" className="text-blue-600 font-medium hover:underline">
+              Forgot Password?
             </Link>
-          </p>
+          </div>
 
-        </div>
+          {apiError && (
+            <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg flex items-center">
+              <AlertCircle className="w-4 h-4 mr-2" /> {apiError}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full flex justify-center items-center py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            <LogIn className="w-4 h-4 mr-2" />
+            {isSubmitting ? "Logging in..." : "Login"}
+          </button>
+        </form>
+
+        <p className="mt-8 text-sm text-center text-gray-600">
+          Don’t have an account?{" "}
+          <Link to="/register" className="text-blue-600 font-medium hover:underline">
+            Create Account
+          </Link>
+        </p>
       </div>
     </div>
   );

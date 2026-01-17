@@ -5,14 +5,13 @@ import {
   Lock,
   CheckCircle,
   AlertCircle,
-  Globe,
   Eye,
   EyeOff,
   KeyRound,
   ChevronLeft
 } from "lucide-react";
 
-// InputField Component (Reusable with password toggle)
+// InputField Component
 const InputField = ({ label, name, type = "text", icon: Icon, placeholder, value, onChange, error, ...props }) => {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === "password";
@@ -25,14 +24,13 @@ const InputField = ({ label, name, type = "text", icon: Icon, placeholder, value
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           {Icon && <Icon className="h-5 w-5 text-gray-400" />}
         </div>
-
         <input
           type={inputType}
           name={name}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className={`w-full pl-10 ${isPassword ? 'pr-10' : 'pr-4'} py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors
+          className={`w-full pl-10 ${isPassword ? 'pr-10' : 'pr-4'} py-2 border rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-colors outline-none
             ${error ? "border-red-500 bg-red-50" : "border-gray-300"}`}
           {...props}
         />
@@ -68,7 +66,6 @@ export default function ResetPassword() {
     setError("");
     setMessage("");
 
-    // Basic validation
     if (!password) {
       setError("Password is required");
       return;
@@ -81,7 +78,6 @@ export default function ResetPassword() {
       setError("Passwords do not match");
       return;
     }
-
     if (!email || !otp) {
       setError("Missing verification details. Please start over.");
       return;
@@ -115,18 +111,18 @@ export default function ResetPassword() {
 
   if (!email || !otp) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-8 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-8 h-8 text-red-500" />
+      <div className="min-h-screen flex items-center justify-center bg-white p-4 font-sans">
+        <div className="w-full max-w-md p-8 border border-gray-100 shadow-sm rounded-2xl text-center">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-6 h-6 text-red-500" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600 mb-6">Missing verification details. You must verify your OTP first.</p>
+          <p className="text-gray-500 mb-6">Missing verification details.</p>
           <Link
             to="/forgot-password"
             className="inline-flex items-center justify-center px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
           >
-            Go to Forgot Password
+            Start Over
           </Link>
         </div>
       </div>
@@ -134,94 +130,60 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex overflow-hidden min-h-[500px]">
-
-        {/* Left Side - Branding */}
-        <div className="hidden md:flex w-1/2 bg-blue-600 p-8 flex-col justify-between text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <h1 className="text-3xl font-bold mb-2">Set New Password</h1>
-            <p className="text-blue-100">Create a strong password to secure your account.</p>
-          </div>
-
-          <div className="relative z-10 space-y-6">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-blue-500/30 rounded-lg backdrop-blur-sm">
-                <CheckCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Security Tip</h3>
-                <p className="text-xs text-blue-100">Use a mix of letters, numbers & symbols</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative z-10 text-xs text-blue-200">
-            © 2024 RTA Management. All rights reserved.
-          </div>
-
-          {/* Decorative Circles */}
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-blue-500 rounded-full opacity-20 filter blur-2xl"></div>
-          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-purple-500 rounded-full opacity-20 filter blur-2xl"></div>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-md p-8 border border-gray-100 shadow-sm rounded-2xl">
+        <div className="mb-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900">Reset Password</h2>
+          <p className="text-sm text-gray-500 mt-2">Create a new password</p>
         </div>
 
-        {/* Right Side - Form */}
-        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <InputField
+            label="New Password"
+            name="password"
+            type="password"
+            icon={Lock}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={error && !password ? "Required" : ""}
+            placeholder="Min 8 chars"
+          />
 
-          <div className="mb-8 text-center md:text-left">
-            <h2 className="text-2xl font-bold text-gray-800">Reset Password</h2>
-            <p className="text-sm text-gray-500 mt-1">Please enter your new password below</p>
-          </div>
+          <InputField
+            label="Confirm Password"
+            name="confirmPassword"
+            type="password"
+            icon={KeyRound}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            error={error && error.includes("match") ? error : ""}
+            placeholder="Re-enter password"
+          />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <InputField
-              label="New Password"
-              name="password"
-              type="password"
-              icon={Lock}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={error && !password ? "Required" : ""}
-              placeholder="Min 8 chars"
-            />
+          {error && !error.includes("match") && !error.includes("Required") && !error.includes("Missing") && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
 
-            <InputField
-              label="Confirm Password"
-              name="confirmPassword"
-              type="password"
-              icon={KeyRound}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              error={error && error.includes("match") ? error : ""}
-              placeholder="Re-enter new password"
-            />
+          {message && (
+            <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 mr-2" /> {message}
+            </div>
+          )}
 
-            {error && !error.includes("match") && !error.includes("Required") && !error.includes("Missing") && (
-              <p className="text-red-500 text-sm">{error}</p>
-            )}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full flex justify-center items-center py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? "Resetting..." : "Reset Password"}
+          </button>
+        </form>
 
-            {message && (
-              <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg flex items-center">
-                <CheckCircle className="w-4 h-4 mr-2" /> {message}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full flex justify-center items-center py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? "Resetting..." : "Reset Password"}
-            </button>
-          </form>
-
-          <div className="mt-8 text-center">
-            <Link to="/login" className="inline-flex items-center text-sm text-gray-600 hover:text-blue-600 font-medium transition-colors">
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back to Login
-            </Link>
-          </div>
-
+        <div className="mt-8 text-center">
+          <Link to="/login" className="inline-flex items-center text-sm text-gray-600 hover:text-blue-600 font-medium transition-colors">
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Back to Login
+          </Link>
         </div>
       </div>
     </div>

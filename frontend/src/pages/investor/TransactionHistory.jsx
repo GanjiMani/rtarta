@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../services/AuthContext";
-import { Search, Filter, Download, RefreshCw, X, ArrowUpRight, ArrowDownRight, Clock, FileText } from "lucide-react";
+import { Search, Download, RefreshCw, X, ArrowUpRight, ArrowDownRight, Clock, FileText, ArrowLeft } from "lucide-react";
 
 export default function TransactionHistory() {
   const { fetchWithAuth } = useAuth();
@@ -119,216 +120,184 @@ export default function TransactionHistory() {
   const getStatusBadge = (status) => {
     const s = status?.toLowerCase() || "";
     if (s === "completed") {
-      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">Completed</span>;
+      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-50 text-green-700 border border-green-100 uppercase">Completed</span>;
     }
     if (s === "pending") {
-      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-700">Pending</span>;
+      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-50 text-yellow-700 border border-yellow-100 uppercase">Pending</span>;
     }
     if (s === "processing") {
-      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700">Processing</span>;
+      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 uppercase">Processing</span>;
     }
-    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700">{status || "Failed"}</span>;
+    return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-50 text-red-700 border border-red-100 uppercase">{status || "Failed"}</span>;
   };
 
   const getTypeIcon = (type) => {
     const t = type?.toLowerCase() || "";
     if (t.includes('redemption') || t.includes('swp') || t.includes('switch_redemption')) {
-      return <ArrowUpRight className="w-4 h-4 text-orange-500" />;
+      return <ArrowUpRight className="w-3 h-3 text-orange-500" />;
     }
-    return <ArrowDownRight className="w-4 h-4 text-green-500" />;
+    return <ArrowDownRight className="w-3 h-3 text-green-500" />;
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading transaction history...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Gradient Header */}
-      <div className="bg-gradient-to-r from-purple-800 to-indigo-700 text-white shadow-xl">
-        <div className="max-w-7xl mx-auto px-6 py-10">
-          <h1 className="text-3xl font-bold mb-1">Transaction History</h1>
-          <p className="text-purple-100 text-lg opacity-90">
-            Track and manage your investment activities
-          </p>
+    <div className="min-h-screen bg-white pb-12 w-full">
+      {/* Simple Header */}
+      <div className="mb-6 flex items-center gap-4">
+        <Link to="/dashboard" className="p-2 hover:bg-gray-50 rounded-full text-gray-500 transition-colors">
+          <ArrowLeft size={20} />
+        </Link>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Transaction History</h1>
+          <p className="text-gray-500 text-sm">Track your investment activities.</p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 -mt-8">
-        {error && (
-          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-sm">
-            <p className="text-red-700 font-medium">{error}</p>
-          </div>
-        )}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-100 p-3 rounded text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
-        {/* Filters Card */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search by ID, Scheme, or Folio..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-50 focus:bg-white transition-all"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            <div>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-50"
+      {/* Filters Card - Compact */}
+      <div className="bg-white rounded-lg border border-gray-100 p-4 mb-6 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-3 items-center">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search transactions..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                <option value="all">All Types</option>
-                <option value="purchase">Purchase</option>
-                <option value="redemption">Redemption</option>
-                <option value="sip">SIP</option>
-                <option value="swp">SWP</option>
-                <option value="stp">STP</option>
-                <option value="switch">Switch</option>
-              </select>
-            </div>
-
-            <div>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-50"
-              >
-                <option value="all">All Statuses</option>
-                <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="failed">Failed</option>
-              </select>
-            </div>
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-100">
-            <div className="text-sm text-gray-600">
-              Showing <span className="font-semibold text-gray-900">{filteredTransactions.length}</span> of{" "}
-              <span className="font-semibold text-gray-900">{transactions.length}</span> records
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={fetchTransactions}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
-              </button>
-              <button
-                onClick={exportToCSV}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm hover:shadow"
-              >
-                <Download className="w-4 h-4" />
-                Export CSV
-              </button>
-            </div>
+          <div className="flex gap-3 w-full md:w-auto">
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            >
+              <option value="all">All Types</option>
+              <option value="purchase">Purchase</option>
+              <option value="redemption">Redemption</option>
+              <option value="sip">SIP</option>
+              <option value="swp">SWP</option>
+              <option value="stp">STP</option>
+              <option value="switch">Switch</option>
+            </select>
+
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            >
+              <option value="all">All Statuses</option>
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+
+          <div className="flex gap-2 ml-auto w-full md:w-auto justify-end">
+            <button
+              onClick={fetchTransactions}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors text-xs font-medium"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
+            </button>
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs font-medium"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Transactions Table */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50/80">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reference</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Scheme / Folio</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-50">
-                {filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((t, index) => (
-                    <tr key={t.transaction_id || index} className="hover:bg-gray-50/50 transition-colors group">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-semibold text-gray-900">{t.transaction_id || "N/A"}</div>
-                        <div className="text-xs text-gray-400 font-mono mt-0.5">ID</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          {t.transaction_date
-                            ? new Date(t.transaction_date).toLocaleDateString("en-IN", {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric'
-                            })
-                            : "N/A"}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className={`p-1.5 rounded-full ${t.transaction_type?.includes('redemption')
-                              ? 'bg-orange-50'
-                              : 'bg-green-50'
-                            }`}>
-                            {getTypeIcon(t.transaction_type)}
-                          </div>
-                          <span className="text-sm font-medium text-gray-700 capitalize">
-                            {t.transaction_type?.replace(/_/g, " ") || "N/A"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900">{t.scheme_name || t.scheme_id || "Unknown Scheme"}</span>
-                          <span className="text-xs text-gray-500 font-mono mt-0.5">{t.folio_number}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm font-bold text-gray-900">
-                          ₹{Number(t.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {t.units ? `${Number(t.units).toFixed(3)} units` : '-'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {getStatusBadge(t.status)}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-16 text-center">
-                      <div className="flex flex-col items-center">
-                        <div className="p-4 bg-gray-50 rounded-full mb-4">
-                          <FileText className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-1">No transactions found</h3>
-                        <p className="text-gray-500 text-sm">
-                          Try adjusting your search filters to find what you're looking for.
-                        </p>
+      {/* Transactions Table - Compact */}
+      <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-gray-500 font-medium text-xs uppercase border-b border-gray-100">
+              <tr>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Scheme</th>
+                <th className="px-4 py-3 text-right">Amount</th>
+                <th className="px-4 py-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filteredTransactions.length > 0 ? (
+                filteredTransactions.map((t, index) => (
+                  <tr key={t.transaction_id || index} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3 h-3 text-gray-400" />
+                        {t.transaction_date ? new Date(t.transaction_date).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : "-"}
                       </div>
                     </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`p-1 rounded-full ${t.transaction_type?.includes('redemption') ? 'bg-orange-50' : 'bg-green-50'}`}>
+                          {getTypeIcon(t.transaction_type)}
+                        </div>
+                        <span className="font-medium text-gray-700 capitalize text-xs">{(t.transaction_type || "").replace(/_/g, " ")}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-gray-900 truncate max-w-[240px]" title={t.scheme_name}>{t.scheme_name || t.scheme_id || "Unknown Scheme"}</span>
+                        <span className="text-[10px] text-gray-500 font-mono mt-0.5">fol: {t.folio_number}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                      <div className="font-bold text-gray-900">₹{Number(t.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</div>
+                      <div className="text-[10px] text-gray-500">{t.units ? `${Number(t.units).toFixed(3)} units` : '-'}</div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-center">
+                      {getStatusBadge(t.status)}
+                    </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="px-4 py-12 text-center text-gray-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <FileText className="w-6 h-6 text-gray-300" />
+                      <span className="text-xs">No transactions match your filters.</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Simple Footer/Pagination info if needed */}
+        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
+          <span>Showing {filteredTransactions.length} of {transactions.length} records</span>
         </div>
       </div>
     </div>

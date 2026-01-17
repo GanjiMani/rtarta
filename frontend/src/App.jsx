@@ -141,12 +141,13 @@ export default function App() {
         <Route path="disclosures" element={<RegulatoryDisclosure />} />
         <Route path="agents" element={<ProtectedRoute><MyAgents /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/verify-otp" element={<VerifyOTP />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
 
 
       </Route>
+
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/verify-otp" element={<VerifyOTP />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
 
       <Route path="/admin/register" element={<AdminRegister />} />

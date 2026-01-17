@@ -11,7 +11,7 @@ export default function InvestorLayout() {
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-white">
       {/* Desktop Sidebar (only show if logged in) */}
       {user && (
         <div className="hidden lg:block fixed inset-y-0 left-0 w-64 z-30">
@@ -38,10 +38,13 @@ export default function InvestorLayout() {
       )}
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col ${user ? "lg:ml-72" : ""}`}>
+      <div className={`flex-1 flex flex-col ${user ? "lg:ml-64" : ""}`}>
         <Header toggleSidebar={toggleSidebar} />
-        <main className="p-8 overflow-auto flex-1 bg-[#FBFBFA]">
-          <Outlet />
+        {/* Main bg is white, content takes full width */}
+        <main className="flex-1 bg-white overflow-auto p-6">
+          <div className="w-full">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

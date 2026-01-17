@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../services/AuthContext";
 import {
-  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid
+  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 import {
   ArrowLeft,
@@ -14,7 +13,6 @@ import {
   AlertCircle
 } from "lucide-react";
 
-// Professional color palette matching the theme
 const COLORS = [
   "#2563EB", // Blue-600
   "#059669", // Emerald-600
@@ -26,7 +24,7 @@ const COLORS = [
 ];
 
 export default function AssetAllocation() {
-  const { fetchWithAuth, user } = useAuth();
+  const { fetchWithAuth } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -47,75 +45,51 @@ export default function AssetAllocation() {
     setLoading(true);
     setError("");
     try {
-      // Fetch folios to calculate allocation
       const foliosRes = await fetchWithAuth("/api/investor/folios");
-      if (!foliosRes.ok) {
-        throw new Error("Failed to fetch portfolio data");
-      }
+      if (!foliosRes.ok) throw new Error("Failed to fetch portfolio data");
       const foliosData = await foliosRes.json();
 
-      // Robust data handling
       let folios = [];
-      if (Array.isArray(foliosData.data)) {
-        folios = foliosData.data;
-      } else if (Array.isArray(foliosData)) {
-        folios = foliosData;
-      } else if (foliosData && Array.isArray(foliosData.folios)) {
-        folios = foliosData.folios;
-      }
+      if (Array.isArray(foliosData.data)) folios = foliosData.data;
+      else if (Array.isArray(foliosData)) folios = foliosData;
+      else if (foliosData && Array.isArray(foliosData.folios)) folios = foliosData.folios;
 
       if (!Array.isArray(folios) || folios.length === 0) {
         setLoading(false);
-        return; // States remain default empty
+        return;
       }
 
-      // Calculate allocation logic
       const schemeTypeMap = {};
       const amcMap = {};
       let totalValue = 0;
       let totalInvestment = 0;
 
       folios.forEach(folio => {
-        // Use fallbacks for safety
         const value = parseFloat(folio.total_value || folio.current_value || 0);
         const investment = parseFloat(folio.total_investment || 0);
-
-        // Normalize scheme type (capitalize first letter)
         let schemeType = folio.scheme_type || "Other";
-        if (schemeType !== "Other") {
-          schemeType = schemeType.charAt(0).toUpperCase() + schemeType.slice(1);
-        }
-
-        // Get AMC Name - prefer name, fallback to ID
+        if (schemeType !== "Other") schemeType = schemeType.charAt(0).toUpperCase() + schemeType.slice(1);
         const amcName = folio.amc_name || folio.amc_id || "Unknown AMC";
 
         totalValue += value;
         totalInvestment += investment;
 
-        // Group by scheme type
-        if (!schemeTypeMap[schemeType]) {
-          schemeTypeMap[schemeType] = { name: schemeType, value: 0, investment: 0, count: 0 };
-        }
+        if (!schemeTypeMap[schemeType]) schemeTypeMap[schemeType] = { name: schemeType, value: 0, investment: 0, count: 0 };
         schemeTypeMap[schemeType].value += value;
         schemeTypeMap[schemeType].investment += investment;
         schemeTypeMap[schemeType].count += 1;
 
-        // Group by AMC
-        if (!amcMap[amcName]) {
-          amcMap[amcName] = { name: amcName, value: 0, investment: 0, count: 0 };
-        }
+        if (!amcMap[amcName]) amcMap[amcName] = { name: amcName, value: 0, investment: 0, count: 0 };
         amcMap[amcName].value += value;
         amcMap[amcName].investment += investment;
         amcMap[amcName].count += 1;
       });
 
-      // Transform maps to sorted arrays
       const bySchemeType = Object.values(schemeTypeMap)
         .map(item => ({
           ...item,
           percentage: totalValue > 0 ? ((item.value / totalValue) * 100).toFixed(2) : 0,
           gainLoss: item.value - item.investment,
-          gainLossPercent: item.investment > 0 ? (((item.value - item.investment) / item.investment) * 100).toFixed(2) : 0
         }))
         .sort((a, b) => b.value - a.value);
 
@@ -124,7 +98,6 @@ export default function AssetAllocation() {
           ...item,
           percentage: totalValue > 0 ? ((item.value / totalValue) * 100).toFixed(2) : 0,
           gainLoss: item.value - item.investment,
-          gainLossPercent: item.investment > 0 ? (((item.value - item.investment) / item.investment) * 100).toFixed(2) : 0
         }))
         .sort((a, b) => b.value - a.value);
 
@@ -141,37 +114,22 @@ export default function AssetAllocation() {
       });
 
     } catch (err) {
-      console.error("Error fetching allocation data:", err);
       setError(err.message || "Failed to load asset allocation data");
     } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
+  const formatCurrency = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 
-  // Custom Chart Components
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0];
       return (
-        <div className="bg-white p-4 border border-blue-100 rounded-xl shadow-xl">
-          <p className="font-bold text-gray-900 mb-1">{data.name}</p>
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-gray-500">Value:</span>
-            <span className="font-semibold text-blue-600">{formatCurrency(data.value)}</span>
-          </div>
-          <div className="flex items-center justify-between gap-4 text-sm mt-1">
-            <span className="text-gray-500">Portion:</span>
-            <span className="font-semibold text-gray-900">{data.payload.percentage}%</span>
-          </div>
+        <div className="bg-white p-2 border border-blue-100 rounded shadow text-xs">
+          <p className="font-bold text-gray-900">{data.name}</p>
+          <div className="flex gap-2"><span className="text-gray-500">Value:</span><span className="font-medium text-blue-600">{formatCurrency(data.value)}</span></div>
+          <div className="flex gap-2"><span className="text-gray-500">Portion:</span><span className="font-medium text-gray-900">{data.payload.percentage}%</span></div>
         </div>
       );
     }
@@ -180,253 +138,149 @@ export default function AssetAllocation() {
 
   const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
     const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-    return percent > 0.05 ? ( // Only show label if > 5%
-      <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-bold">
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    ) : null;
+    return percent > 0.05 ? <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-[10px] font-bold">{`${(percent * 100).toFixed(0)}%`}</text> : null;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-gray-600 font-medium">Analyzing portfolio...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen bg-white flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center space-x-4 mb-4">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-            <h1 className="text-2xl font-bold">Portfolio Analysis</h1>
+    <div className="min-h-screen bg-white w-full">
+      {/* Simple Header */}
+      <div className="mb-6 flex items-center gap-4">
+        <Link to="/dashboard" className="p-2 hover:bg-gray-50 rounded-full text-gray-500 transition-colors">
+          <ArrowLeft size={20} />
+        </Link>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Portfolio Analysis</h1>
+          <p className="text-gray-500 text-sm">Visual breakdown of your investments.</p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-100 p-3 rounded text-red-700 flex items-center gap-2 text-sm">
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
+
+      {/* Summary Stats - Compact */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="p-4 border border-gray-100 rounded-lg shadow-sm">
+          <div className="flex justify-between items-start mb-1">
+            <p className="text-xs font-medium text-gray-500">Current Value</p>
+            <Briefcase size={16} className="text-blue-600" />
           </div>
-          <p className="text-blue-100 max-w-2xl ml-11">
-            Visual breakdown of your investments across asset classes and fund houses.
+          <p className="text-xl font-bold text-gray-900">{formatCurrency(allocationData.totalValue)}</p>
+        </div>
+        <div className="p-4 border border-gray-100 rounded-lg shadow-sm">
+          <div className="flex justify-between items-start mb-1">
+            <p className="text-xs font-medium text-gray-500">Invested</p>
+            <PieChartIcon size={16} className="text-emerald-600" />
+          </div>
+          <p className="text-xl font-bold text-gray-900">{formatCurrency(allocationData.totalInvestment)}</p>
+        </div>
+        <div className="p-4 border border-gray-100 rounded-lg shadow-sm">
+          <div className="flex justify-between items-start mb-1">
+            <p className="text-xs font-medium text-gray-500">Total P&L</p>
+            <TrendingUp size={16} className={allocationData.gainLoss >= 0 ? "text-green-600" : "text-red-600"} />
+          </div>
+          <p className={`text-xl font-bold ${allocationData.gainLoss >= 0 ? "text-green-600" : "text-red-600"}`}>
+            {allocationData.gainLoss >= 0 ? '+' : ''}{formatCurrency(allocationData.gainLoss)}
+          </p>
+        </div>
+        <div className="p-4 border border-gray-100 rounded-lg shadow-sm">
+          <div className="flex justify-between items-start mb-1">
+            <p className="text-xs font-medium text-gray-500">XIRR (Approx)</p>
+            <Activity size={16} className="text-amber-500" />
+          </div>
+          <p className={`text-xl font-bold ${parseFloat(allocationData.gainLossPercent) >= 0 ? "text-green-600" : "text-red-600"}`}>
+            {allocationData.gainLossPercent}%
           </p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
-        {error && (
-          <div className="mb-8 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-center shadow-sm">
-            <AlertCircle className="w-5 h-5 text-red-500 mr-3" />
-            <p className="text-red-700 font-medium">{error}</p>
-          </div>
-        )}
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500 transform hover:scale-[1.02] transition-transform duration-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-500">Current Value</span>
-              <Briefcase className="w-5 h-5 text-blue-500" />
-            </div>
-            <div className="text-2xl font-bold text-gray-900">{formatCurrency(allocationData.totalValue)}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-emerald-500 transform hover:scale-[1.02] transition-transform duration-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-500">Invested Amount</span>
-              <PieChartIcon className="w-5 h-5 text-emerald-500" />
-            </div>
-            <div className="text-2xl font-bold text-gray-900">{formatCurrency(allocationData.totalInvestment)}</div>
-          </div>
-
-          <div className={`bg-white rounded-xl shadow-md p-6 border-l-4 transform hover:scale-[1.02] transition-transform duration-200 ${allocationData.gainLoss >= 0 ? "border-green-500" : "border-red-500"}`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-500">Total P&L</span>
-              <TrendingUp className={`w-5 h-5 ${allocationData.gainLoss >= 0 ? "text-green-500" : "text-red-500"}`} />
-            </div>
-            <div className={`text-2xl font-bold ${allocationData.gainLoss >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {allocationData.gainLoss >= 0 ? '+' : ''}{formatCurrency(allocationData.gainLoss)}
-            </div>
-          </div>
-
-          <div className={`bg-white rounded-xl shadow-md p-6 border-l-4 transform hover:scale-[1.02] transition-transform duration-200 ${parseFloat(allocationData.gainLossPercent) >= 0 ? "border-yellow-500" : "border-red-500"}`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-500">XIRR (Approx)</span>
-              <Activity className="w-5 h-5 text-yellow-500" />
-            </div>
-            <div className={`text-2xl font-bold ${parseFloat(allocationData.gainLossPercent) >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {allocationData.gainLossPercent}%
-            </div>
-          </div>
+      {allocationData.bySchemeType.length === 0 && !error ? (
+        <div className="text-center py-12 border border-gray-100 rounded-lg bg-gray-50">
+          <p className="text-gray-500 text-sm mb-4">No portfolio data available.</p>
+          <button onClick={() => navigate("/purchase")} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700">Start Investing</button>
         </div>
-
-        {allocationData.bySchemeType.length === 0 && !error ? (
-          <div className="bg-white shadow-lg rounded-xl p-12 text-center border border-gray-100">
-            <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <PieChartIcon className="h-10 w-10 text-blue-600" />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Asset Chart */}
+            <div className="border border-gray-100 rounded-lg p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-gray-900 mb-4">Asset Class Allocation</h2>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={allocationData.bySchemeType} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={50} paddingAngle={2} label={renderCustomLabel} labelLine={false}>
+                      {allocationData.bySchemeType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend verticalAlign="bottom" height={36} iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Portfolio is Empty</h3>
-            <p className="text-gray-500 mb-8 max-w-md mx-auto">Start investing in recommended schemes to see your asset allocation breakdown and performace analysis.</p>
-            <button
-              onClick={() => navigate("/purchase")}
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all hover:scale-105"
-            >
-              Start Investing
-            </button>
+
+            {/* AMC Chart */}
+            <div className="border border-gray-100 rounded-lg p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-gray-900 mb-4">AMC Exposure</h2>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={allocationData.byAMC} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={50} paddingAngle={2} label={renderCustomLabel} labelLine={false}>
+                      {allocationData.byAMC.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend verticalAlign="bottom" height={36} iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
-        ) : (
-          <>
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              {/* Asset Allocation Chart */}
-              <div className="bg-white shadow-md rounded-xl p-6 border border-gray-100">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-bold text-gray-800">Asset Class Allocation</h2>
-                </div>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={allocationData.bySchemeType}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        innerRadius={60}
-                        paddingAngle={2}
-                        label={renderCustomLabel}
-                        labelLine={false}
-                      >
-                        {allocationData.bySchemeType.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend verticalAlign="bottom" height={36} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
 
-              {/* AMC Allocation Chart */}
-              <div className="bg-white shadow-md rounded-xl p-6 border border-gray-100">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-bold text-gray-800">AMC Exposure</h2>
-                </div>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={allocationData.byAMC}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        innerRadius={60}
-                        paddingAngle={2}
-                        label={renderCustomLabel}
-                        labelLine={false}
-                      >
-                        {allocationData.byAMC.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend verticalAlign="bottom" height={36} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="border border-gray-100 rounded-lg overflow-hidden shadow-sm">
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-100"><h2 className="text-xs font-bold text-gray-700 uppercase">Asset Class Details</h2></div>
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-gray-100">
+                  {allocationData.bySchemeType.map((item, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-3 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                        <span className="text-gray-900 text-xs font-medium">{item.name}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-xs">{formatCurrency(item.value)}</td>
+                      <td className="px-4 py-3 text-right text-gray-500 text-xs">{item.percentage}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            {/* Detailed Tables */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
-              {/* Asset Class Table */}
-              <div className="bg-white shadow-md rounded-xl overflow-hidden border border-gray-100">
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                  <h2 className="text-lg font-bold text-gray-800">Asset Class Details</h2>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50/50">
-                      <tr>
-                        <th className="pl-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Class</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Current Value</th>
-                        <th className="pr-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Alloc %</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {allocationData.bySchemeType.map((item, index) => (
-                        <tr key={item.name} className="hover:bg-gray-50 transition-colors">
-                          <td className="pl-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                              <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-semibold text-gray-900">
-                            {formatCurrency(item.value)}
-                          </td>
-                          <td className="pr-6 py-4 whitespace-nowrap text-right text-sm text-gray-600">
-                            {item.percentage}%
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* AMC Table */}
-              <div className="bg-white shadow-md rounded-xl overflow-hidden border border-gray-100">
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                  <h2 className="text-lg font-bold text-gray-800">AMC Details</h2>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50/50">
-                      <tr>
-                        <th className="pl-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fund House</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Current Value</th>
-                        <th className="pr-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Alloc %</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {allocationData.byAMC.map((item, index) => (
-                        <tr key={item.name} className="hover:bg-gray-50 transition-colors">
-                          <td className="pl-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                              <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-semibold text-gray-900">
-                            {formatCurrency(item.value)}
-                          </td>
-                          <td className="pr-6 py-4 whitespace-nowrap text-right text-sm text-gray-600">
-                            {item.percentage}%
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
+            <div className="border border-gray-100 rounded-lg overflow-hidden shadow-sm">
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-100"><h2 className="text-xs font-bold text-gray-700 uppercase">AMC Details</h2></div>
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-gray-100">
+                  {allocationData.byAMC.map((item, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-3 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                        <span className="text-gray-900 truncate max-w-[150px] text-xs font-medium">{item.name}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-xs">{formatCurrency(item.value)}</td>
+                      <td className="px-4 py-3 text-right text-gray-500 text-xs">{item.percentage}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
