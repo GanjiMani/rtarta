@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
             setTimeout(async () => {
               try {
                 const profileEndpoint = userData.role === 'admin'
-                  ? "/api/v1/admin/admindashboard"
+                  ? "/api/admin/auth/me"
                   : "/api/investor/profile";
 
                 const response = await fetch(`${API_URL}${profileEndpoint}`, {
@@ -129,7 +129,7 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       // Pick the correct endpoint
-      const endpoint = isAdmin ? "/api/v1/admin/register" : "/api/investor/auth/register";
+      const endpoint = isAdmin ? "/api/admin/auth/register" : "/api/investor/auth/register";
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -160,8 +160,8 @@ export function AuthProvider({ children }) {
     setError(null);
 
     const payload = { email, password };
-    const loginEndpoint = isAdmin ? "/api/v1/admin/login" : "/api/investor/auth/login";
-    const profileEndpoint = isAdmin ? "/api/v1/admin/admindashboard" : "/api/investor/profile/";
+    const loginEndpoint = isAdmin ? "/api/admin/auth/login" : "/api/investor/auth/login";
+    const profileEndpoint = isAdmin ? "/api/admin/auth/me" : "/api/investor/profile/";
 
     try {
       const response = await fetch(`${API_URL}${loginEndpoint}`, {
@@ -256,6 +256,7 @@ export function AuthProvider({ children }) {
       logout,
       fetchWithAuth,
       fetchPublic,
+      fetchWithoutAuth: fetchPublic,
     }),
     [user, token, loading]
   );

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Boolean, Integer, DECIMAL, Date, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, String, Text, Boolean, Integer, DECIMAL, Date, DateTime, ForeignKey, Enum, JSON
 from sqlalchemy.orm import relationship
 import enum
 from app.db.base import BaseModel
@@ -32,11 +32,18 @@ class User(BaseModel):
     # User Details
     full_name = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), nullable=False, index=True)
+    
+    # RBAC for Admin
+    sub_role = Column(String(50))  # e.g., 'rta_ceo', 'ops_manager'
+    permissions = Column(JSON, default={})  # Custom granular permissions
 
     # Role-specific IDs
     investor_id = Column(String(10), ForeignKey("investor_master.investor_id"), unique=True)
     amc_id = Column(String(10), ForeignKey("amc_master.amc_id"))
     distributor_id = Column(String(15), ForeignKey("distributor_master.distributor_id"))
+    
+    # NEW: Admin Role ID (Optional, for future Employee Master)
+    admin_employee_id = Column(String(20), unique=True, nullable=True)
 
     # Account Status
     is_active = Column(Boolean, default=True, nullable=False)

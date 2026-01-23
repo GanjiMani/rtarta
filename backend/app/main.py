@@ -31,6 +31,7 @@ app.add_middleware(
 # app.include_router(auth_router, prefix="/api", tags=["authentication"])
 
 # Admin routers
+app.include_router(admin.auth.router, prefix="/api", tags=["admin"])
 app.include_router(admin.dashboard.router, prefix="/api", tags=["admin"])
 app.include_router(admin.transactions.router, prefix="/api", tags=["admin"])
 app.include_router(admin.approvals.router, prefix="/api", tags=["admin"])

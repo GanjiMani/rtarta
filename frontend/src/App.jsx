@@ -42,8 +42,9 @@ import ForgotPassword from './pages/investor/ForgotPassword';
 import VerifyOTP from './pages/investor/VerifyOTP';
 import ResetPassword from './pages/investor/ResetPassword';
 // Admin pages
-import AdminRegister from "./pages/admin/AdminRegister";
-import AdminLogin from "./pages/admin/AdminLogin";
+import AdminRegister from "./pages/admin/auth/AdminRegister";
+import AdminLogin from "./pages/admin/auth/AdminLogin";
+import AdminForgotPassword from "./pages/admin/auth/AdminForgotPassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Approvals from "./pages/admin/Approvals";
 import TransactionsMonitor from "./pages/admin/TransactionsMonitor";
@@ -152,6 +153,7 @@ export default function App() {
 
       <Route path="/admin/register" element={<AdminRegister />} />
       <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
       <Route path="/admin" element={<ProtectedRoute adminOnly><AdminLayout /></ProtectedRoute>}>
         <Route path="admindashboard" element={<AdminDashboard />} />
         <Route path="approvals" element={<Approvals />} />
