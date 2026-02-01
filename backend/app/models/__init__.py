@@ -2,7 +2,7 @@
 
 from .user import User
 from .amc import AMC
-from .scheme import Scheme
+from .scheme import Scheme, NAVHistory
 from .investor import Investor
 from .mandate import BankAccount, Nominee, SIPRegistration, SWPRegistration, STPRegistration
 from .folio import Folio
@@ -22,7 +22,7 @@ from .admin import (
 
 # Import all models into the namespace
 __all__ = [
-    "User", "AMC", "Scheme", "Investor",
+    "User", "AMC", "Scheme", "NAVHistory", "Investor",
     "BankAccount", "Nominee", "SIPRegistration", "SWPRegistration", "STPRegistration",
     "Folio", "Transaction", "Document", "UnclaimedAmount", "ServiceRequest",
     "Notification",    "NotificationType",

@@ -1,6 +1,7 @@
 from sqlalchemy import Column, String, Text, Boolean, Integer, DECIMAL, ForeignKey, Date, Enum
 from sqlalchemy.orm import relationship
 import enum
+from datetime import date
 from app.db.base import BaseModel
 
 
@@ -72,3 +73,22 @@ class Scheme(BaseModel):
 
     def __repr__(self):
         return f"<Scheme(id={self.id}, scheme_id={self.scheme_id}, name={self.scheme_name[:30]}...)>"
+
+
+class NAVHistory(BaseModel):
+    """Historical NAV data for schemes"""
+
+    __tablename__ = "nav_history"
+
+    scheme_id = Column(String(10), ForeignKey("scheme_master.scheme_id"), nullable=False, index=True)
+    nav_date = Column(Date, nullable=False, index=True)
+    nav_value = Column(DECIMAL(10, 4), nullable=False)
+    
+    # Metadata
+    created_at = Column(Date, default=date.today)
+    
+    # Relationships
+    scheme = relationship("Scheme", backref="nav_history")
+
+    def __repr__(self):
+        return f"<NAVHistory(scheme={self.scheme_id}, date={self.nav_date}, nav={self.nav_value})>"

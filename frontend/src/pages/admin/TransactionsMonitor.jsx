@@ -102,9 +102,8 @@ export default function TransactionsMonitor() {
     };
     return (
       <span
-        className={`px-2 py-1 rounded-full text-xs font-semibold ${
-          styles[status] || "bg-gray-100 text-gray-800"
-        }`}
+        className={`px-2 py-1 rounded-full text-xs font-semibold ${styles[status] || "bg-gray-100 text-gray-800"
+          }`}
       >
         {status.toUpperCase()}
       </span>
@@ -389,7 +388,10 @@ export default function TransactionsMonitor() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">
+                      <span className="text-sm text-gray-900 block">
+                        {tx.investor_name}
+                      </span>
+                      <span className="text-xs text-gray-500">
                         {tx.investor_id}
                       </span>
                     </td>

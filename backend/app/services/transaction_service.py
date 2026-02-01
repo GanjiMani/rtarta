@@ -1027,3 +1027,91 @@ class TransactionService:
             "redemption_transaction": redemption_txn,
             "purchase_transaction": purchase_txn
         }
+
+    def complete_transaction(self, transaction_id: str, approver_id: str = None) -> Transaction:
+        """
+        Finalize a pending transaction: Update folio holdings and set status to completed.
+        This is called after approval.
+        """
+        transaction = self.db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if not transaction:
+            raise ValueError(f"Transaction {transaction_id} not found")
+            
+        if transaction.status != TransactionStatus.pending:
+            # Idempotency check: if already completed, just return
+            if transaction.status == TransactionStatus.completed:
+                return transaction
+            raise ValueError(f"Transaction is not pending (status: {transaction.status})")
+            
+        # Get Folio
+        folio = self.db.query(Folio).filter(Folio.folio_number == transaction.folio_number).first()
+        if not folio:
+             # Folio might not exist if it was a fresh purchase initiated via Admin
+             scheme = self.db.query(Scheme).filter(Scheme.scheme_id == transaction.scheme_id).first()
+             if not scheme:
+                 raise ValueError("Scheme not found")
+                 
+             folio = Folio(
+                folio_number=transaction.folio_number,
+                investor_id=transaction.investor_id,
+                amc_id=transaction.amc_id,
+                scheme_id=transaction.scheme_id,
+                total_units=Decimal('0.0000'),
+                current_nav=scheme.current_nav,
+                total_value=Decimal('0.00'),
+                total_investment=Decimal('0.00'),
+                average_cost_per_unit=Decimal('0.0000'),
+                status=FolioStatus.active
+            )
+             self.db.add(folio)
+             self.db.flush()
+        
+        # Apply updates based on transaction type
+        if transaction.transaction_type in [TransactionType.fresh_purchase, TransactionType.additional_purchase, TransactionType.sip, TransactionType.switch_purchase]:
+            # Purchase Logic
+            folio.total_units += transaction.units
+            folio.total_investment += transaction.amount
+            
+            # Recalculate Average Cost
+            if folio.total_units > 0:
+                folio.average_cost_per_unit = folio.total_investment / folio.total_units
+            
+        elif transaction.transaction_type in [TransactionType.redemption, TransactionType.swp, TransactionType.switch_redemption]:
+            # Redemption Logic
+            # Note: For redemptions, transaction.units should be negative.
+            # If initiate_redemption stored it as negative, we just add it.
+            # However, ensure we handle the sign correctly.
+            
+            units_delta = transaction.units
+            if transaction.transaction_type == TransactionType.redemption and units_delta > 0:
+                 # Safety fix: if stored as positive, negate it
+                 units_delta = -units_delta
+                 transaction.units = units_delta # Update record too
+            
+            folio.total_units += units_delta
+            
+            # Reduce investment cost proportionally
+            # Cost of redeemed units = abs(units) * avg_cost
+            cost_of_redeemed = abs(units_delta) * folio.average_cost_per_unit
+            folio.total_investment -= cost_of_redeemed
+            if folio.total_investment < 0: 
+                folio.total_investment = Decimal('0.00')
+                
+        # Update Folio Value
+        folio.current_nav = transaction.nav_per_unit 
+        folio.total_value = folio.total_units * folio.current_nav
+        folio.last_transaction_date = date.today()
+        folio.transaction_count += 1
+        
+        if folio.total_units <= 0 and transaction.transaction_type in [TransactionType.redemption, TransactionType.switch_redemption]:
+             folio.status = FolioStatus.closed
+             folio.total_units = Decimal('0.0000')
+             
+        # Update Transaction Status
+        transaction.status = TransactionStatus.completed
+        transaction.completion_date = date.today()
+        if approver_id:
+            transaction.approved_by = approver_id
+            
+        self.db.flush()
+        return transaction

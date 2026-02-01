@@ -8,6 +8,9 @@ from app.models.admin import Approval, ApprovalStatus, ApprovalType, AdminUser
 from app.models.transaction import Transaction
 from app.core.jwt import get_current_user
 from app.models.user import User
+from app.core.jwt import get_current_user
+from app.core.permissions import has_permission
+from app.core.roles import AdminPermissions
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/admin/approvals", tags=["admin"])
@@ -26,12 +29,10 @@ async def get_approvals(
     approval_type: Optional[str] = None,
     priority: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.READ_OPERATIONS))
 ):
     """Get list of pending and processed approvals"""
     
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     query = db.query(Approval)
     
@@ -95,12 +96,9 @@ async def get_approvals(
 async def get_approval_details(
     approval_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.READ_OPERATIONS))
 ):
     """Get detailed information about a specific approval"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     approval = db.query(Approval).filter(
         Approval.approval_id == approval_id
@@ -138,12 +136,9 @@ async def process_approval(
     approval_id: str,
     action_data: ApprovalAction,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.APPROVE_LEVEL1))
 ):
     """Approve or reject an approval request"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     approval = db.query(Approval).filter(
         Approval.approval_id == approval_id
@@ -174,12 +169,10 @@ async def process_approval(
             
             # Process the underlying request based on type
             if approval.approval_type == ApprovalType.transaction:
-                transaction = db.query(Transaction).filter(
-                    Transaction.transaction_id == approval.request_id
-                ).first()
-                if transaction:
-                    transaction.status = "completed"
-                    transaction.approved_by = admin_user.admin_id
+                from app.services.transaction_service import TransactionService
+                service = TransactionService(db)
+                # This updates folio, status, and approved_by
+                service.complete_transaction(approval.request_id, approver_id=admin_user.admin_id)
         else:
             # Move to next level
             approval.current_level += 1
@@ -212,12 +205,9 @@ async def process_approval(
 @router.get("/stats/summary")
 async def get_approval_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.READ_OPERATIONS))
 ):
     """Get approval statistics"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     total_approvals = db.query(Approval).count()
     pending_approvals = db.query(Approval).filter(

@@ -12,6 +12,8 @@ from app.models.scheme import Scheme
 from app.models.amc import AMC
 from app.models.unclaimed import UnclaimedAmount
 from app.core.jwt import get_current_user
+from app.core.permissions import has_permission
+from app.core.roles import AdminPermissions
 from app.models.user import User
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -20,12 +22,10 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/admindashboard")
 async def get_admin_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.VIEW_DASHBOARD))
 ):
     """Get comprehensive admin dashboard metrics"""
     
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     today = datetime.now().date()
     week_ago = today - timedelta(days=7)
@@ -168,12 +168,10 @@ async def get_admin_dashboard(
 async def get_detailed_metrics(
     period: str = Query("7d", regex="^(7d|30d|90d|1y)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.VIEW_DASHBOARD))
 ):
     """Get detailed metrics for charts and analytics"""
     
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     days_map = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}
     days = days_map.get(period, 7)

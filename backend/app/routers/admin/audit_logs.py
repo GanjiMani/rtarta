@@ -6,6 +6,8 @@ from typing import Optional
 from app.db.session import get_db
 from app.models.admin import AuditLog, AuditLogAction
 from app.core.jwt import get_current_user
+from app.core.permissions import has_permission
+from app.core.roles import AdminPermissions
 from app.models.user import User
 
 router = APIRouter(prefix="/admin/audit", tags=["admin"])
@@ -21,12 +23,9 @@ async def get_audit_logs(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.READ_AUDIT))
 ):
     """Get audit logs with filters"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     query = db.query(AuditLog)
     
@@ -87,12 +86,9 @@ async def get_audit_logs(
 async def get_audit_stats(
     days: int = Query(7, ge=1, le=365),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.READ_AUDIT))
 ):
     """Get audit log statistics"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     start_date = datetime.now() - timedelta(days=days)
     

@@ -4,7 +4,8 @@ from sqlalchemy import and_
 from datetime import datetime, date
 from typing import List
 from app.db.session import get_db
-from app.models.scheme import Scheme
+from app.db.session import get_db
+from app.models.scheme import Scheme, NAVHistory
 from app.models.admin import BatchJob, BatchJobType, BatchJobStatus
 from app.core.jwt import get_current_user
 from app.models.user import User
@@ -32,17 +33,32 @@ async def upload_nav_file(
         )
     
     # Create batch job record
-    batch_job = BatchJob(
-        job_id=f"NAV{datetime.now().strftime('%Y%m%d%H%M%S')}",
-        job_type=BatchJobType.nav_upload,
-        job_name=f"NAV Upload - {file.filename}",
-        scheduled_at=datetime.now(),
-        started_at=datetime.now(),
-        status=BatchJobStatus.running,
-        executed_by=current_user.email
-    )
-    db.add(batch_job)
-    db.flush()
+    # Create batch job record
+    job_id = f"NAV{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    # Guard against too long job_id just in case, though timestamp is fixed len
+    
+    try:
+        # Look up admin_id corresponding to the current user
+        from app.models.admin import AdminUser
+        admin_rec = db.query(AdminUser).filter(AdminUser.user_id == current_user.id).first()
+        executed_by_id = admin_rec.admin_id if admin_rec else None
+
+        batch_job = BatchJob(
+            job_id=job_id,
+            job_type=BatchJobType.nav_upload,
+            job_name=f"NAV Upload - {file.filename[:200]}", # truncate filename if needed
+            scheduled_at=datetime.now(),
+            started_at=datetime.now(),
+            status=BatchJobStatus.running,
+            executed_by=executed_by_id # Must be a valid admin_id or None
+        )
+        db.add(batch_job)
+        db.flush()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to start batch job: {str(e)}")
     
     try:
         # Read file content
@@ -83,10 +99,39 @@ async def upload_nav_file(
                     ).first()
                     
                     if not scheme:
+                         # Try alternative format (S001 <-> SCH001)
+                        alt_scheme_id = "SCH" + scheme_id[1:] if scheme_id.startswith("S") and len(scheme_id) == 4 else scheme_id.replace("SCH", "S")
+                        scheme = db.query(Scheme).filter(Scheme.scheme_id == alt_scheme_id).first()
+                        if scheme:
+                            scheme_id = scheme.scheme_id # Normalize to DB ID
+
+                    if not scheme:
                         raise ValueError(f"Scheme {scheme_id} not found")
                     
-                    scheme.current_nav = nav_value
-                    scheme.nav_date = nav_date
+                    # Create History Record
+                    # Check if history exists for this date to avoid duplicates
+                    existing_history = db.query(NAVHistory).filter(
+                        and_(
+                            NAVHistory.scheme_id == scheme_id,
+                            NAVHistory.nav_date == nav_date
+                        )
+                    ).first()
+                    
+                    if existing_history:
+                        existing_history.nav_value = nav_value
+                    else:
+                        new_history = NAVHistory(
+                            scheme_id=scheme_id,
+                            nav_date=nav_date,
+                            nav_value=nav_value,
+                            created_at=date.today()
+                        )
+                        db.add(new_history)
+
+                    # Update scheme NAV if date is newer or same
+                    if scheme.nav_date is None or nav_date >= scheme.nav_date:
+                        scheme.current_nav = nav_value
+                        scheme.nav_date = nav_date
                     
                     records_successful += 1
                 except Exception as e:
@@ -119,6 +164,8 @@ async def upload_nav_file(
             )
             
     except Exception as e:
+        import traceback
+        traceback.print_exc() # Print full trace to console
         batch_job.status = BatchJobStatus.failed
         batch_job.error_log = str(e)
         batch_job.completed_at = datetime.now()

@@ -7,6 +7,8 @@ from app.db.session import get_db
 from app.models.admin import AdminUser, AdminRole
 from app.models.user import User, UserStatus, UserRole
 from app.core.jwt import get_current_user
+from app.core.permissions import has_permission
+from app.core.roles import AdminPermissions
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/admin/users", tags=["admin"])
@@ -38,12 +40,10 @@ async def get_admin_users(
     role: Optional[str] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.ADMIN_USERS))
 ):
     """Get list of admin users"""
     
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     query = db.query(AdminUser).join(User, AdminUser.user_id == User.id)
     
@@ -97,12 +97,9 @@ async def get_admin_users(
 async def create_admin_user(
     user_data: AdminUserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.ADMIN_USERS))
 ):
     """Create a new admin user"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_data.user_id).first()
@@ -153,12 +150,9 @@ async def update_admin_user(
     admin_id: str,
     user_data: AdminUserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.ADMIN_USERS))
 ):
     """Update an admin user"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     admin_user = db.query(AdminUser).filter(
         AdminUser.admin_id == admin_id
@@ -196,12 +190,9 @@ async def update_admin_user(
 async def toggle_user_status(
     admin_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.ADMIN_USERS))
 ):
     """Toggle admin user active status"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     admin_user = db.query(AdminUser).filter(
         AdminUser.admin_id == admin_id

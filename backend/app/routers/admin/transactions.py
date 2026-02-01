@@ -10,8 +10,16 @@ from app.models.investor import Investor
 from app.models.scheme import Scheme
 from app.models.amc import AMC
 from app.core.jwt import get_current_user
+from app.core.permissions import has_permission
+from app.core.roles import AdminPermissions
 from app.models.user import User
+from app.models.admin import Approval, ApprovalType, ApprovalStatus, AdminUser
 from pydantic import BaseModel
+from app.schemas.transaction import (
+    PurchaseRequest, RedemptionRequest, SwitchRequest, 
+    SIPSetupRequest, SWPSetupRequest, STPSetupRequest
+)
+from app.services.transaction_service import TransactionService
 
 router = APIRouter(prefix="/admin/transactions", tags=["admin"])
 
@@ -42,14 +50,15 @@ async def get_transactions(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.READ_TRANSACTIONS))
 ):
     """Get paginated list of transactions with filters"""
+    print(f"DEBUG: get_transactions called. User: {current_user.email}, Role: {current_user.role}")
     
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+    from sqlalchemy.orm import joinedload
     
-    query = db.query(Transaction)
+    # Eager load investor relationship to get names
+    query = db.query(Transaction).options(joinedload(Transaction.investor))
     
     # Apply filters
     if status:
@@ -98,6 +107,7 @@ async def get_transactions(
         transaction_list.append({
             "transaction_id": tx.transaction_id,
             "investor_id": tx.investor_id,
+            "investor_name": tx.investor.full_name if tx.investor else "Unknown",
             "folio_number": tx.folio_number,
             "transaction_type": tx.transaction_type.value,
             "transaction_date": tx.transaction_date.isoformat() if tx.transaction_date else None,
@@ -107,7 +117,7 @@ async def get_transactions(
             "status": tx.status.value,
             "scheme_id": tx.scheme_id,
             "amc_id": tx.amc_id,
-            "created_at": tx.created_at.isoformat() if tx.created_at else None
+            "created_at": tx.created_at.isoformat() if hasattr(tx, 'created_at') and tx.created_at else None
         })
     
     return {
@@ -123,12 +133,9 @@ async def get_transactions(
 async def get_transaction_details(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.READ_TRANSACTIONS))
 ):
     """Get detailed information about a specific transaction"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     transaction = db.query(Transaction).filter(
         Transaction.transaction_id == transaction_id
@@ -188,12 +195,9 @@ async def get_transaction_stats(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.READ_TRANSACTIONS))
 ):
     """Get transaction statistics summary"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     query = db.query(Transaction)
     
@@ -260,12 +264,9 @@ async def get_transaction_stats(
 async def retry_transaction(
     transaction_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.WRITE_TRANSACTIONS))
 ):
     """Retry a failed transaction"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     transaction = db.query(Transaction).filter(
         Transaction.transaction_id == transaction_id
@@ -295,3 +296,198 @@ async def retry_transaction(
     }
 
 
+
+@router.post("/initiate/purchase")
+async def initiate_purchase(
+    request: PurchaseRequest,
+    investor_id: str = Query(..., description="Investor ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission(AdminPermissions.WRITE_ENTRY))
+):
+    """
+    Initiate a purchase transaction request (Requires Approval)
+    """
+    # Verify investor exists
+    investor = db.query(Investor).filter(Investor.investor_id == investor_id).first()
+    if not investor:
+        raise HTTPException(status_code=404, detail="Investor not found")
+
+    # Verify admin user
+    admin_user = db.query(AdminUser).filter(AdminUser.user_id == current_user.id).first()
+    if not admin_user:
+        raise HTTPException(status_code=403, detail="Admin profile not found")
+
+    try:
+        # Create transaction service
+        service = TransactionService(db)
+        
+        # Validate scheme and amount logic (dry run)
+        # We reuse process_fresh_purchase logic but we want to create it in PENDING status
+        # and NOT update units yet.
+        # Since TransactionService methods execute immediately, we'll manually create the Pending Transaction here
+        
+        scheme = db.query(Scheme).filter(Scheme.scheme_id == request.scheme_id).first()
+        if not scheme:
+             # Try alternative format
+            alt_scheme_id = "SCH" + request.scheme_id[1:] if request.scheme_id.startswith("S") and len(request.scheme_id) == 4 else request.scheme_id.replace("SCH", "S")
+            scheme = db.query(Scheme).filter(Scheme.scheme_id == alt_scheme_id).first()
+            
+        if not scheme:
+            raise HTTPException(status_code=404, detail="Scheme not found")
+
+        # Create Transaction Record (Pending)
+        transaction_id = service.generate_transaction_id()
+        
+        # Get or create folio (without locking, just to get number)
+        # For fresh purchase, we might need a new folio.
+        # If we use get_or_create_folio, it creates a folio. 
+        # For PENDING transaction, we should ideally NOT create a folio if it doesn't exist, 
+        # but the transaction record needs a folio_number. 
+        # Strategy: Use existing or generate a placeholder/new one.
+        folio = service.get_or_create_folio(investor_id, scheme.scheme_id)
+        
+        from app.models.transaction import PaymentMode
+        payment_mode_enum = PaymentMode[request.payment_mode.name] 
+
+        transaction = Transaction(
+            transaction_id=transaction_id,
+            investor_id=investor_id,
+            folio_number=folio.folio_number,
+            scheme_id=scheme.scheme_id,
+            amc_id=scheme.amc_id,
+            transaction_type=TransactionType.fresh_purchase, # Or additional
+            transaction_date=date.today(),
+            amount=request.amount,
+            nav_per_unit=scheme.current_nav, # Snapshot NAV
+            units=request.amount / scheme.current_nav if scheme.current_nav else 0,
+            status=TransactionStatus.pending, # PENDING
+            payment_mode=payment_mode_enum,
+            payment_reference=f"ADM-{admin_user.admin_id}-{datetime.now().strftime('%H%M%S')}",
+            processed_by=admin_user.admin_id,
+            remarks=f"Initiated by {current_user.full_name}"
+        )
+        db.add(transaction)
+        db.flush()
+
+        # Create Approval Request
+        approval_id = f"APR-{datetime.now().strftime('%Y%m%d')}-{transaction_id}"
+        approval = Approval(
+            approval_id=approval_id,
+            approval_type=ApprovalType.transaction,
+            request_id=transaction_id,
+            request_data=request.model_dump_json(),
+            status=ApprovalStatus.pending,
+            priority="High" if request.amount > 100000 else "Medium",
+            created_by=admin_user.admin_id,
+            approver_id="ADM001", # Default to CEO/COO or logic to find approver
+            current_level=1,
+            total_levels=1 if request.amount < 50000 else 2 # Example logic
+        )
+        db.add(approval)
+        db.commit()
+
+        return {
+            "message": "Purchase request initiated successfully",
+            "transaction_id": transaction_id,
+            "approval_id": approval_id,
+            "status": "pending_approval"
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/initiate/redemption")
+async def initiate_redemption(
+    request: RedemptionRequest,
+    investor_id: str = Query(..., description="Investor ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission(AdminPermissions.WRITE_ENTRY))
+):
+    """
+    Initiate a redemption transaction request (Requires Approval)
+    """
+    # Verify investor exists
+    investor = db.query(Investor).filter(Investor.investor_id == investor_id).first()
+    if not investor:
+        raise HTTPException(status_code=404, detail="Investor not found")
+
+    admin_user = db.query(AdminUser).filter(AdminUser.user_id == current_user.id).first()
+    if not admin_user:
+        raise HTTPException(status_code=403, detail="Admin profile not found")
+
+    try:
+        service = TransactionService(db)
+        
+        # Verify Folio
+        folio = db.query(Folio).filter(Folio.folio_number == request.folio_number).first()
+        if not folio or folio.investor_id != investor_id:
+            raise HTTPException(status_code=400, detail="Invalid folio for this investor")
+            
+        scheme = db.query(Scheme).filter(Scheme.scheme_id == folio.scheme_id).first()
+        
+        # Calculate units/amount for the record
+        nav = scheme.current_nav
+        units = 0
+        amount = 0
+        
+        if request.all_units:
+            units = folio.total_units
+            amount = float(units) * float(nav)
+        elif request.units:
+            units = request.units
+            amount = float(units) * float(nav)
+        elif request.amount:
+            amount = request.amount
+            units = float(amount) / float(nav) if nav else 0
+
+        transaction_id = service.generate_transaction_id()
+
+        transaction = Transaction(
+            transaction_id=transaction_id,
+            investor_id=investor_id,
+            folio_number=request.folio_number,
+            scheme_id=folio.scheme_id,
+            amc_id=folio.amc_id,
+            transaction_type=TransactionType.redemption,
+            transaction_date=date.today(),
+            amount=amount,
+            nav_per_unit=nav,
+            units=-units, # Negative for redemption
+            status=TransactionStatus.pending,
+            processed_by=admin_user.admin_id,
+            remarks=f"Initiated by {current_user.full_name}"
+        )
+        db.add(transaction)
+        db.flush()
+        
+        # Create Approval Request
+        approval_id = f"APR-{datetime.now().strftime('%Y%m%d')}-{transaction_id}"
+        approval = Approval(
+            approval_id=approval_id,
+            approval_type=ApprovalType.transaction,
+            request_id=transaction_id,
+            request_data=request.model_dump_json(),
+            status=ApprovalStatus.pending,
+            priority="High" if amount > 50000 else "Medium",
+            created_by=admin_user.admin_id,
+            approver_id="ADM002", # Assign to Operations Head
+            current_level=1,
+            total_levels=1
+        )
+        db.add(approval)
+        db.commit()
+
+        return {
+            "message": "Redemption request initiated successfully",
+            "transaction_id": transaction_id,
+            "approval_id": approval_id,
+            "status": "pending_approval"
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))

@@ -6,6 +6,8 @@ from typing import Optional
 from app.db.session import get_db
 from app.models.investor import Investor, KYCStatus
 from app.core.jwt import get_current_user
+from app.core.permissions import has_permission
+from app.core.roles import AdminPermissions
 from app.models.user import User
 from app.models.admin import AdminUser
 from pydantic import BaseModel
@@ -24,12 +26,9 @@ async def get_kyc_verifications(
     page_size: int = Query(20, ge=1, le=100),
     kyc_status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.READ_ALL)) # Basic read all includes KYC
 ):
     """Get KYC verification requests"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     query = db.query(Investor)
     
@@ -83,12 +82,9 @@ async def verify_kyc(
     investor_id: str,
     action: KYCVerificationAction,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.APPROVE_LEVEL1))
 ):
     """Approve or reject KYC verification"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     investor = db.query(Investor).filter(
         Investor.investor_id == investor_id
@@ -126,12 +122,9 @@ async def verify_kyc(
 @router.get("/stats")
 async def get_kyc_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(has_permission(AdminPermissions.VIEW_DASHBOARD))
 ):
     """Get KYC verification statistics"""
-    
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     from sqlalchemy import func
     

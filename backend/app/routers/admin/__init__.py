@@ -3,7 +3,7 @@ from . import (
     idcw_management, reconciliation, unclaimed, user_management,
     system_settings, exceptions, reports, batch_jobs, system_alerts,
     user_sessions, kyc_verification, mandate_approvals, regulatory_filings,
-    auth
+    auth, investor_management
 )
 
 __all__ = [
@@ -11,5 +11,5 @@ __all__ = [
     "idcw_management", "reconciliation", "unclaimed", "user_management",
     "system_settings", "exceptions", "reports", "batch_jobs", "system_alerts",
     "user_sessions", "kyc_verification", "mandate_approvals", "regulatory_filings",
-    "auth"
+    "auth", "investor_management"
 ]
